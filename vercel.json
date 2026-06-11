@@ -1,4 +1,6 @@
 {
+  "buildCommand": "echo 'No build required'",
+  "installCommand": "echo 'No install required'",
   "routes": [
     { "src": "/install.sh", "dest": "/install.sh" },
     { "src": "/install.ps1", "dest": "/install.ps1" },
