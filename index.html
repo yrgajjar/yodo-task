@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YoDo Task - Local-First Kanban Board & Productivity Hub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0b0f19;
+      --bg-secondary: #111827;
+      --bg-card: #1f2937;
+      --text-main: #f9fafb;
+      --text-muted: #9ca3af;
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --primary-light: rgba(99, 102, 241, 0.1);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --gradient-text: linear-gradient(135deg, #a5b4fc 0%, #6366f1 100%);
+      --shadow-indigo: 0 10px 30px -10px rgba(99, 102, 241, 0.3);
+      --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    h1, h2, h3, h4 {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+    }
+
+    /* Container */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Navigation */
+    header {
+      border-bottom: 1px solid var(--border-color);
+      padding: 20px 0;
+      background-color: rgba(11, 15, 25, 0.8);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+
+    nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--text-main);
+      letter-spacing: -0.5px;
+    }
+
+    .logo-text {
+      background: var(--gradient-text);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .github-link {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-main);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+      background-color: var(--bg-card);
+      padding: 8px 16px;
+      border-radius: 30px;
+      border: 1px solid var(--border-color);
+      transition: all 0.2s ease;
+    }
+
+    .github-link:hover {
+      background-color: var(--primary-light);
+      border-color: var(--primary);
+    }
+
+    /* Hero Section */
+    .hero {
+      padding: 80px 0;
+      text-align: center;
+      position: relative;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -100px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, rgba(99, 102, 241, 0) 70%);
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    .badge {
+      display: inline-block;
+      background-color: var(--primary-light);
+      color: var(--primary);
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 24px;
+      border: 1px solid rgba(99, 102, 241, 0.2);
+    }
+
+    .hero h1 {
+      font-size: 54px;
+      line-height: 1.1;
+      margin-bottom: 20px;
+      letter-spacing: -1px;
+    }
+
+    .hero h1 span {
+      background: var(--gradient-text);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-tagline {
+      font-size: 18px;
+      color: var(--text-muted);
+      max-width: 600px;
+      margin: 0 auto 40px auto;
+    }
+
+    /* Terminal Console Widget */
+    .terminal-container {
+      max-width: 640px;
+      margin: 0 auto 50px auto;
+      background-color: var(--bg-secondary);
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+      text-align: left;
+    }
+
+    .terminal-header {
+      background-color: rgba(255, 255, 255, 0.03);
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .terminal-dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .dot-red { background-color: #ef4444; }
+    .dot-yellow { background-color: #f59e0b; }
+    .dot-green { background-color: #10b981; }
+
+    .terminal-title {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .terminal-tabs {
+      display: flex;
+      background-color: rgba(0, 0, 0, 0.2);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 12px 20px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-right: 1px solid var(--border-color);
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn.active {
+      background-color: var(--bg-secondary);
+      color: var(--text-main);
+      border-bottom: 2px solid var(--primary);
+    }
+
+    .terminal-body {
+      padding: 24px;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 13px;
+      position: relative;
+    }
+
+    .terminal-line {
+      display: flex;
+      align-items: center;
+      color: var(--text-main);
+      word-break: break-all;
+    }
+
+    .terminal-prompt {
+      color: var(--primary);
+      font-weight: bold;
+      margin-right: 10px;
+      user-select: none;
+    }
+
+    .terminal-copy {
+      position: absolute;
+      right: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+
+    .terminal-copy:hover {
+      background-color: var(--primary);
+      border-color: var(--primary);
+    }
+
+    /* Features Section */
+    .features {
+      padding: 80px 0;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .section-title {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .section-title h2 {
+      font-size: 32px;
+      margin-bottom: 8px;
+    }
+
+    .section-title p {
+      color: var(--text-muted);
+      font-size: 15px;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 24px;
+    }
+
+    .feature-card {
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 30px;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--primary);
+    }
+
+    .feature-icon {
+      background-color: var(--primary-light);
+      color: var(--primary);
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      font-size: 20px;
+    }
+
+    .feature-card h3 {
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+
+    .feature-card p {
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    /* Screenshots / Preview Section */
+    .previews {
+      padding: 80px 0;
+      border-top: 1px solid var(--border-color);
+      background-color: rgba(255, 255, 255, 0.01);
+    }
+
+    .carousel-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 30px;
+    }
+
+    .carousel-view {
+      width: 100%;
+      max-width: 800px;
+      border-radius: 14px;
+      border: 2px solid var(--border-color);
+      box-shadow: var(--shadow-indigo);
+      overflow: hidden;
+      aspect-ratio: 16 / 15.5;
+      background-color: var(--bg-secondary);
+    }
+
+    .carousel-slide {
+      width: 100%;
+      height: 100%;
+      display: none;
+      object-fit: cover;
+    }
+
+    .carousel-slide.active {
+      display: block;
+      animation: fadeIn 0.4s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.98); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .carousel-nav {
+      display: flex;
+      gap: 12px;
+    }
+
+    .carousel-dot {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      padding: 8px 18px;
+      border-radius: 30px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .carousel-dot.active {
+      background-color: var(--primary);
+      border-color: var(--primary);
+      color: var(--text-main);
+    }
+
+    /* How to Install Info Details */
+    .install-details {
+      padding: 80px 0;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .steps-container {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    .step-item {
+      display: flex;
+      gap: 20px;
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      padding: 24px;
+      border-radius: 10px;
+    }
+
+    .step-num {
+      background-color: var(--primary-light);
+      color: var(--primary);
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .step-content h3 {
+      font-size: 16px;
+      margin-bottom: 6px;
+    }
+
+    .step-content p {
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--border-color);
+      padding: 40px 0;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    footer p {
+      margin-bottom: 8px;
+    }
+
+    footer a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation -->
+  <header>
+    <div class="container">
+      <nav>
+        <div class="logo">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="3" style="vertical-align: middle;">
+            <polyline points="9 11 12 14 22 4"></polyline>
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+          </svg>
+          <span class="logo-text">YoDo Task</span>
+        </div>
+        <a href="https://github.com/yodo/task" class="github-link" target="_blank">
+          <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+          </svg>
+          GitHub
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="container">
+      <span class="badge">Local-First Workspace</span>
+      <h1>Simplify Your Focus with <span>YoDo Task</span></h1>
+      <p class="hero-tagline">
+        An ultra-fast, local-first Kanban board and task manager. No cloud required. Take back control of your data, task boards, and focus logs.
+      </p>
+
+      <!-- Terminal Command Box -->
+      <div class="terminal-container">
+        <div class="terminal-header">
+          <div class="terminal-dots">
+            <span class="dot dot-red"></span>
+            <span class="dot dot-yellow"></span>
+            <span class="dot dot-green"></span>
+          </div>
+          <span class="terminal-title">One-Click Universal Installer</span>
+        </div>
+        <div class="terminal-tabs">
+          <button class="tab-btn active" onclick="switchOS('linux')">Linux (Ubuntu)</button>
+          <button class="tab-btn" onclick="switchOS('mac')">macOS (Darwin)</button>
+          <button class="tab-btn" onclick="switchOS('windows')">Windows (PS)</button>
+        </div>
+        <div class="terminal-body">
+          <div class="terminal-line">
+            <span class="terminal-prompt">$</span>
+            <span id="install-command">curl -fsSL https://myapp.vercel.app/install.sh | bash</span>
+          </div>
+          <button class="terminal-copy" onclick="copyCommand()">
+            <svg id="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align: middle; margin-right: 4px;">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            <span id="copy-text">Copy</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- App Preview Screenshots -->
+  <section class="previews">
+    <div class="container">
+      <div class="section-title">
+        <h2>Visual Preview</h2>
+        <p>A peek into your future local workspace experience.</p>
+      </div>
+
+      <div class="carousel-container">
+        <div class="carousel-view">
+          <img class="carousel-slide active" src="/images/app-1.png" alt="YoDo Kanban Dashboard">
+          <img class="carousel-slide" src="/images/app-2.png" alt="YoDo Spotlight Mini Window">
+          <img class="carousel-slide" src="/images/app-3.png" alt="YoDo Analytics & Productivity Focus">
+        </div>
+        <div class="carousel-nav">
+          <button class="carousel-dot active" onclick="slide(0)">1. Dashboard</button>
+          <button class="carousel-dot" onclick="slide(1)">2. Spotlight</button>
+          <button class="carousel-dot" onclick="slide(2)">3. Analytics</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Grid -->
+  <section class="features">
+    <div class="container">
+      <div class="section-title">
+        <h2>Designed for Speed and Security</h2>
+        <p>A minimalist design packed with premium utility.</p>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <h3>Local-First Performance</h3>
+          <p>Launches instantly. Runs entirely in your local network with zero cloud lag or remote data synchronization delays.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">💾</div>
+          <h3>SQLite Data Control</h3>
+          <p>Your workspace, logs, and settings are saved locally inside a production-safe SQLite file. Back up or restore anytime.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🌐</div>
+          <h3>Offline Support</h3>
+          <p>Work seamlessly on flights, subways, or remote locations. Never lose focus due to network disconnection.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🎯</div>
+          <h3>Pomodoro & Audit Logs</h3>
+          <p>Integrated focus timers track productivity sessions and log achievements in a searchable, offline audit trail.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Step-by-Step Instructions -->
+  <section class="install-details">
+    <div class="container">
+      <div class="section-title">
+        <h2>Setup Instructions</h2>
+        <p>Getting up and running takes less than 30 seconds.</p>
+      </div>
+
+      <div class="steps-container">
+        <div class="step-item">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h3>Copy the Command</h3>
+            <p>Select your operating system tab above, then click the <strong>Copy</strong> button to copy the curl/powershell installation command to your clipboard.</p>
+          </div>
+        </div>
+
+        <div class="step-item">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h3>Run in Terminal</h3>
+            <p>Open your command line interface (Terminal on Linux/macOS, PowerShell on Windows) and paste the command. Hit Enter to execute it.</p>
+          </div>
+        </div>
+
+        <div class="step-item">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h3>Start Organizing</h3>
+            <p>The installer pulls the codebase, installs packages, compiles scripts, and runs the app on your system, launching the web interface automatically.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <p>YoDo Task Manager &bull; Local Network Workspace &bull; v1.1.0</p>
+      <p>Codebase available on <a href="https://github.com/yodo/task" target="_blank">GitHub</a>. Released under the MIT License.</p>
+    </div>
+  </footer>
+
+  <script>
+    // Commands lookup
+    const commands = {
+      linux: "curl -fsSL https://myapp.vercel.app/install.sh | bash",
+      mac: "curl -fsSL https://myapp.vercel.app/install.command | bash",
+      windows: "irm https://myapp.vercel.app/install.ps1 | iex"
+    };
+
+    let activeOS = 'linux';
+
+    function switchOS(os) {
+      activeOS = os;
+      // Tabs styling
+      const buttons = document.querySelectorAll('.tab-btn');
+      buttons.forEach(btn => btn.classList.remove('active'));
+      
+      const activeBtn = Array.from(buttons).find(btn => btn.innerText.toLowerCase().includes(os));
+      if (activeBtn) activeBtn.classList.add('active');
+
+      // Command text change
+      document.getElementById('install-command').innerText = commands[os];
+    }
+
+    function copyCommand() {
+      const commandText = commands[activeOS];
+      navigator.clipboard.writeText(commandText).then(() => {
+        // Change copy button UI temporarily
+        const copyText = document.getElementById('copy-text');
+        const copyIcon = document.getElementById('copy-icon');
+        
+        copyText.innerText = "Copied!";
+        copyIcon.innerHTML = `<path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/>`;
+        
+        setTimeout(() => {
+          copyText.innerText = "Copy";
+          copyIcon.innerHTML = `
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          `;
+        }, 2000);
+      });
+    }
+
+    // Screenshots slide navigation
+    function slide(index) {
+      // Slides change
+      const slides = document.querySelectorAll('.carousel-slide');
+      slides.forEach(s => s.classList.remove('active'));
+      slides[index].classList.add('active');
+
+      // Dots highlight
+      const dots = document.querySelectorAll('.carousel-dot');
+      dots.forEach(d => d.classList.remove('active'));
+      dots[index].classList.add('active');
+    }
+  </script>
+</body>
+</html>

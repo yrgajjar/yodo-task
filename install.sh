@@ -1,0 +1,139 @@
+#!/bin/bash
+# install.sh - Production installer script for YoDo Task (Linux)
+
+echo "=========================================="
+# shellcheck disable=SC2154
+echo "    Installing YoDo Task (Linux/Ubuntu)   "
+echo "=========================================="
+
+# Repository configuration (can be updated for user fork)
+GITHUB_REPO="yodo/task"
+
+# 1. Accept port as argument (defaults to 54321)
+PORT="${1:-54321}"
+if ! [[ "$PORT" =~ ^[0-9]+$ ]]; then
+  echo "Error: Port must be a numeric value."
+  exit 1
+fi
+
+echo "Configuration: Port set to $PORT"
+
+# 2. Check if Node.js and npm are installed
+if ! command -v node &> /dev/null; then
+  echo "Error: Node.js is not installed."
+  echo "Please install Node.js (version 18 or newer) and try again."
+  exit 1
+fi
+
+if ! command -v npm &> /dev/null; then
+  echo "Error: npm is not installed."
+  echo "Please install npm and try again."
+  exit 1
+fi
+
+echo "Node.js detected: $(node -v)"
+echo "npm detected: $(npm -v)"
+
+# 3. Create target directory
+echo "Creating installation directory in /opt/yodo-task..."
+sudo mkdir -p /opt/yodo-task
+
+# 4. Download and extract codebase from GitHub
+echo "Downloading codebase from GitHub ($GITHUB_REPO)..."
+TEMP_TAR="/tmp/yodo-task-$(date +%s).tar.gz"
+
+if command -v curl &> /dev/null; then
+  curl -L -s "https://github.com/$GITHUB_REPO/archive/refs/heads/main.tar.gz" -o "$TEMP_TAR"
+elif command -v wget &> /dev/null; then
+  wget -q "https://github.com/$GITHUB_REPO/archive/refs/heads/main.tar.gz" -O "$TEMP_TAR"
+else
+  echo "Error: Neither curl nor wget is installed. Cannot download application source."
+  exit 1
+fi
+
+if [ ! -f "$TEMP_TAR" ] || [ ! -s "$TEMP_TAR" ]; then
+  echo "Error: Failed to download the source code archive from GitHub."
+  exit 1
+fi
+
+echo "Extracting codebase..."
+sudo rm -rf /opt/yodo-task/*
+sudo tar -xzf "$TEMP_TAR" -C /opt/yodo-task --strip-components=1
+rm -f "$TEMP_TAR"
+
+# 5. Fix permissions
+echo "Setting permissions for /opt/yodo-task..."
+sudo chown -R "$USER":"$USER" /opt/yodo-task
+
+# 6. Install dependencies and compile
+echo "Installing application dependencies..."
+cd /opt/yodo-task || exit 1
+
+npm install
+if [ $? -ne 0 ]; then
+  echo "Error: npm install failed."
+  exit 1
+fi
+
+echo "Building React static distribution..."
+npm run build
+if [ $? -ne 0 ]; then
+  echo "Error: Vite build failed."
+  exit 1
+fi
+
+echo "Rebuilding better-sqlite3 native module..."
+npm rebuild better-sqlite3
+if [ $? -ne 0 ]; then
+  echo "Error: Rebuilding better-sqlite3 failed."
+  exit 1
+fi
+
+# 7. Create global command (yodo-task)
+echo "Creating global launcher command /usr/local/bin/yodo-task..."
+cat <<EOF | sudo tee /usr/local/bin/yodo-task > /dev/null
+#!/bin/bash
+# yodo-task - Launch script for YoDo Task
+export PORT=$PORT
+
+# Auto-open the browser on the correct port after a short delay
+(
+  sleep 1.5
+  if command -v xdg-open > /dev/null; then
+    xdg-open "http://localhost:\$PORT"
+  elif command -v sensible-browser > /dev/null; then
+    sensible-browser "http://localhost:\$PORT"
+  fi
+) &
+
+cd /opt/yodo-task
+exec node src/main/server.js "\$@"
+EOF
+
+sudo chmod +x /usr/local/bin/yodo-task
+
+# 8. Create autostart launcher
+echo "Configuring boot autostart..."
+AUTOSTART_DIR="$HOME/.config/autostart"
+mkdir -p "$AUTOSTART_DIR"
+
+cat <<EOF > "$AUTOSTART_DIR/yodo-task.desktop"
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=YoDo Task
+Comment=Launch YoDo Task local Kanban board
+Exec=yodo-task
+Terminal=false
+StartupNotify=false
+X-GNOME-Autostart-enabled=true
+EOF
+
+chmod +x "$AUTOSTART_DIR/yodo-task.desktop"
+echo "Autostart configured at: $AUTOSTART_DIR/yodo-task.desktop"
+
+echo "=========================================="
+echo "Installation complete! YoDo Task is ready."
+echo "You can now run 'yodo-task' from anywhere."
+echo "=========================================="
+exit 0

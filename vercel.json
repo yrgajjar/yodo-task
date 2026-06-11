@@ -1,0 +1,9 @@
+{
+  "routes": [
+    { "src": "/install.sh", "dest": "/install.sh" },
+    { "src": "/install.ps1", "dest": "/install.ps1" },
+    { "src": "/install.command", "dest": "/install.command" },
+    { "src": "/images/(.*)", "dest": "/public/images/$1" },
+    { "src": "/(.*)", "dest": "/$1" }
+  ]
+}
