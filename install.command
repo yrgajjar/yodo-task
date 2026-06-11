@@ -81,31 +81,12 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-# 6. Create global command (yodo-task)
-echo "Creating global launcher command /usr/local/bin/yodo-task..."
-cat <<EOF | sudo tee /usr/local/bin/yodo-task > /dev/null
-#!/bin/bash
-# yodo-task - Launch script for YoDo Task
-export PORT=\${PORT:-54321}
-
-# Auto-open the browser on the correct port after a short delay
-(
-  sleep 1.5
-  if command -v open > /dev/null; then
-    open "http://localhost:\$PORT"
-  fi
-) &
-
-cd /usr/local/yodo-task
-exec node src/main/server.js "\$@"
-EOF
-
-sudo chmod +x /usr/local/bin/yodo-task
-
-# 7. Configure LaunchAgent boot autostart
+# 6. Configure LaunchAgent boot autostart
 echo "Configuring boot autostart LaunchAgent..."
 LAUNCH_AGENT_DIR="$HOME/Library/LaunchAgents"
 mkdir -p "$LAUNCH_AGENT_DIR"
+
+NODE_PATH=$(command -v node)
 
 cat <<EOF > "$LAUNCH_AGENT_DIR/com.yodotask.app.plist"
 <?xml version="1.0" encoding="UTF-8"?>
@@ -116,23 +97,56 @@ cat <<EOF > "$LAUNCH_AGENT_DIR/com.yodotask.app.plist"
     <string>com.yodotask.app</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/local/bin/yodo-task</string>
+        <string>$NODE_PATH</string>
+        <string>/usr/local/yodo-task/src/main/server.js</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>WorkingDirectory</key>
+    <string>/usr/local/yodo-task</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PORT</key>
+        <string>54321</string>
+    </dict>
 </dict>
 </plist>
 EOF
 
-chmod +x "$LAUNCH_AGENT_DIR/com.yodotask.app.plist"
-echo "Autostart configured at: $LAUNCH_AGENT_DIR/com.yodotask.app.plist"
+# Load and start LaunchAgent immediately
+launchctl unload "$LAUNCH_AGENT_DIR/com.yodotask.app.plist" >/dev/null 2>&1 || true
+launchctl load "$LAUNCH_AGENT_DIR/com.yodotask.app.plist"
 
-# 8. Start the application
-echo "Starting YoDo Task..."
-yodo-task > /dev/null 2>&1 &
+# 7. Create global command (yodo-task) to control daemon and launch web UI
+echo "Creating global launcher command /usr/local/bin/yodo-task..."
+cat <<EOF | sudo tee /usr/local/bin/yodo-task > /dev/null
+#!/bin/bash
+# yodo-task - Controlling script for YoDo Task
+
+# Ensure LaunchAgent is active/running
+launchctl list com.yodotask.app >/dev/null 2>&1
+if [ \$? -ne 0 ]; then
+  echo "Starting background LaunchAgent..."
+  launchctl load "$HOME/Library/LaunchAgents/com.yodotask.app.plist" 2>/dev/null
+  launchctl start com.yodotask.app 2>/dev/null
+  sleep 1.5
+fi
+
+# Open browser
+if command -v open > /dev/null; then
+  open "http://localhost:54321"
+fi
+EOF
+
+sudo chmod +x /usr/local/bin/yodo-task
 
 echo "=========================================="
 echo "Installation complete! YoDo Task is ready."
 echo "You can now run 'yodo-task' from anywhere."
+echo "The application runs as a background LaunchAgent daemon."
+echo "  - Start:   launchctl start com.yodotask.app"
+echo "  - Stop:    launchctl stop com.yodotask.app"
 echo "=========================================="
 exit 0

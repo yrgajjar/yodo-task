@@ -89,51 +89,73 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-# 7. Create global command (yodo-task)
-echo "Creating global launcher command /usr/local/bin/yodo-task..."
+# 7. Configure systemd user service
+echo "Configuring persistent user-level systemd daemon..."
+SYSTEMD_USER_DIR="$HOME/.config/systemd/user"
+mkdir -p "$SYSTEMD_USER_DIR"
+
+NODE_PATH=$(command -v node)
+
+cat <<EOF > "$SYSTEMD_USER_DIR/yodo-task.service"
+[Unit]
+Description=YoDo Task Manager Daemon
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/yodo-task
+ExecStart=$NODE_PATH src/main/server.js
+Restart=always
+RestartSec=5
+Environment=PORT=$PORT
+
+[Install]
+WantedBy=default.target
+EOF
+
+# Reload and enable/start the service
+systemctl --user daemon-reload
+systemctl --user enable yodo-task.service
+systemctl --user restart yodo-task.service
+
+# Enable linger so user-level services run at boot without active sessions
+sudo loginctl enable-linger "$USER" 2>/dev/null || true
+
+# 8. Create global command (yodo-task) to control daemon and launch web UI
+echo "Creating global command /usr/local/bin/yodo-task..."
 cat <<EOF | sudo tee /usr/local/bin/yodo-task > /dev/null
 #!/bin/bash
-# yodo-task - Launch script for YoDo Task
-export PORT=$PORT
+# yodo-task - Controlling script for YoDo Task
 
-# Auto-open the browser on the correct port after a short delay
-(
-  sleep 1.5
-  if command -v xdg-open > /dev/null; then
-    xdg-open "http://localhost:\$PORT"
-  elif command -v sensible-browser > /dev/null; then
-    sensible-browser "http://localhost:\$PORT"
-  fi
-) &
+# Ensure systemd user service is running
+systemctl --user is-active --quiet yodo-task
+if [ \$? -ne 0 ]; then
+  echo "Starting background daemon..."
+  systemctl --user start yodo-task
+  sleep 1
+fi
 
-cd /opt/yodo-task
-exec node src/main/server.js "\$@"
+PORT=\$(systemctl --user show yodo-task -p Environment | grep -o -E 'PORT=[0-9]+' | cut -d= -f2)
+if [ -z "\$PORT" ]; then
+  PORT=$PORT
+fi
+
+# Auto-open browser
+if command -v xdg-open > /dev/null; then
+  xdg-open "http://localhost:\$PORT"
+elif command -v sensible-browser > /dev/null; then
+  sensible-browser "http://localhost:\$PORT"
+fi
 EOF
 
 sudo chmod +x /usr/local/bin/yodo-task
 
-# 8. Create autostart launcher
-echo "Configuring boot autostart..."
-AUTOSTART_DIR="$HOME/.config/autostart"
-mkdir -p "$AUTOSTART_DIR"
-
-cat <<EOF > "$AUTOSTART_DIR/yodo-task.desktop"
-[Desktop Entry]
-Type=Application
-Version=1.0
-Name=YoDo Task
-Comment=Launch YoDo Task local Kanban board
-Exec=yodo-task
-Terminal=false
-StartupNotify=false
-X-GNOME-Autostart-enabled=true
-EOF
-
-chmod +x "$AUTOSTART_DIR/yodo-task.desktop"
-echo "Autostart configured at: $AUTOSTART_DIR/yodo-task.desktop"
-
 echo "=========================================="
 echo "Installation complete! YoDo Task is ready."
 echo "You can now run 'yodo-task' from anywhere."
+echo "The application runs as a persistent service."
+echo "  - Start:   systemctl --user start yodo-task"
+echo "  - Stop:    systemctl --user stop yodo-task"
+echo "  - Logs:    journalctl --user -u yodo-task -f"
 echo "=========================================="
 exit 0

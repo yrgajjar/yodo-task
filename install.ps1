@@ -88,14 +88,30 @@ if ($LASTEXITCODE -ne 0) {
   Exit 1
 }
 
-# 6. Create global command (yodo-task.cmd) inside installation directory and add to Path
-Write-Host "Creating command launcher (yodo-task.cmd)..." -ForegroundColor Cyan
+# 6. Create PowerShell background launcher and cmd wrapper inside installation directory
+Write-Host "Creating command launcher scripts..." -ForegroundColor Cyan
+
+$launcherContent = @'
+param (
+    [switch]$Silent
+)
+
+$port = 54321
+$listener = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue
+if (-not $listener) {
+  Start-Process -FilePath "node" -ArgumentList "$PSScriptRoot\src\main\server.js" -WindowStyle Hidden -WorkingDirectory "$PSScriptRoot"
+  Start-Sleep -Seconds 2
+}
+
+if (-not $Silent) {
+  Start-Process "http://localhost:$port"
+}
+'@
+$launcherContent | Out-File -FilePath "$installDir\yodo-task-launcher.ps1" -Encoding UTF8
+
 $cmdContent = @"
 @echo off
-set PORT=%PORT%
-if "%PORT%"=="" set PORT=54321
-start http://localhost:%PORT%
-node "%~dp0src\main\server.js" %*
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0yodo-task-launcher.ps1" %*
 "@
 $cmdContent | Out-File -FilePath "$installDir\yodo-task.cmd" -Encoding ASCII
 
@@ -114,10 +130,10 @@ try {
   $StartupFolder = [System.IO.Path]::Combine([System.Environment]::GetFolderPath('Startup'), 'YoDo Task.lnk')
   $WshShell = New-Object -ComObject WScript.Shell
   $Shortcut = $WshShell.CreateShortcut($StartupFolder)
-  $Shortcut.TargetPath = "cmd.exe"
-  $Shortcut.Arguments = "/c yodo-task"
+  $Shortcut.TargetPath = "powershell.exe"
+  $Shortcut.Arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ""$installDir\yodo-task-launcher.ps1"" -Silent"
   $Shortcut.WorkingDirectory = $installDir
-  $Shortcut.Description = "Start YoDo Task Local ToDo App"
+  $Shortcut.Description = "Start YoDo Task Server Silently in Background"
   $Shortcut.WindowStyle = 7 # Minimized/Hidden
   $Shortcut.Save()
   Write-Host "Autostart shortcut created in Windows Startup Folder." -ForegroundColor Green
@@ -126,10 +142,11 @@ try {
 }
 
 # 8. Start the application
-Write-Host "Starting YoDo Task..." -ForegroundColor Cyan
-Start-Process "cmd.exe" -ArgumentList "/c yodo-task" -WindowStyle Hidden
+Write-Host "Starting YoDo Task in background..." -ForegroundColor Cyan
+Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File ""$installDir\yodo-task-launcher.ps1""" -WindowStyle Hidden
 
 Write-Host "==========================================" -ForegroundColor Green
 Write-Host "Installation complete! YoDo Task is ready." -ForegroundColor Green
-Write-Host "You can now run 'yodo-task' in any command prompt." -ForegroundColor Green
+Write-Host "The application now runs as a persistent background process." -ForegroundColor Green
+Write-Host "You can run 'yodo-task' in any command prompt to open the board." -ForegroundColor Green
 Write-Host "==========================================" -ForegroundColor Green
