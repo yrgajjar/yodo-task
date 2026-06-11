@@ -253,6 +253,7 @@ function toggleQuickAddWindow() {
   if (quickAddWindow.isVisible()) {
     quickAddWindow.hide();
   } else {
+    quickAddWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     quickAddWindow.center();
     quickAddWindow.show();
     quickAddWindow.focus();
@@ -279,6 +280,14 @@ function registerAppShortcut(shortcutStr) {
   let isRegistered = false;
   try {
     isRegistered = globalShortcut.register(primaryKey, () => {
+      console.log(`[Shortcut] Primary global shortcut pressed: ${primaryKey}`);
+      if (Notification.isSupported()) {
+        new Notification({
+          title: 'YoDo Task',
+          body: `Summoning Spotlight Mini window (${primaryKey})...`,
+          silent: true
+        }).show();
+      }
       toggleMiniWindow();
     });
   } catch (err) {
@@ -297,6 +306,14 @@ function registerAppShortcut(shortcutStr) {
   let isFallbackRegistered = false;
   try {
     isFallbackRegistered = globalShortcut.register(fallbackKey, () => {
+      console.log(`[Shortcut] Fallback global shortcut pressed: ${fallbackKey}`);
+      if (Notification.isSupported()) {
+        new Notification({
+          title: 'YoDo Task',
+          body: `Summoning Spotlight Mini window (${fallbackKey})...`,
+          silent: true
+        }).show();
+      }
       toggleMiniWindow();
     });
   } catch (err) {
@@ -341,9 +358,10 @@ function toggleMiniWindow() {
     createMiniWindow();
   }
 
-  if (miniWindow.isVisible() && miniWindow.isFocused()) {
+  if (miniWindow.isVisible()) {
     miniWindow.hide();
   } else {
+    miniWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     miniWindow.center();
     miniWindow.show();
     miniWindow.focus();
@@ -582,6 +600,14 @@ app.whenReady().then(() => {
   quickAddShortcuts.forEach(key => {
     try {
       globalShortcut.register(key, () => {
+        console.log(`[Shortcut] Quick Add global shortcut pressed: ${key}`);
+        if (Notification.isSupported()) {
+          new Notification({
+            title: 'YoDo Task',
+            body: `Summoning Quick Add command bar (${key})...`,
+            silent: true
+          }).show();
+        }
         toggleQuickAddWindow();
       });
       console.log(`[Shortcut] Registered global Quick Add: ${key}`);
