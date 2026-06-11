@@ -14,20 +14,53 @@ function Exit-With-Pause ($code) {
   Exit $code
 }
 
-# 1. Check if Node.js is installed
+# 1. Check if Node.js is installed, and install if missing
 $nodeCheck = Get-Command node -ErrorAction SilentlyContinue
 if (-not $nodeCheck) {
-  Write-Host "Error: Node.js is not installed." -ForegroundColor Red
-  Write-Host "Please install Node.js (version 18 or newer) and run this script again." -ForegroundColor Yellow
-  Write-Host "You can download Node.js from https://nodejs.org" -ForegroundColor Yellow
-  Exit-With-Pause 1
+  Write-Host "Node.js is not detected on your system." -ForegroundColor Yellow
+  Write-Host "Downloading and installing Node.js 20 LTS silently..." -ForegroundColor Cyan
+  
+  $msiPath = "$env:TEMP\node-install.msi"
+  try {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    Invoke-WebRequest -Uri "https://nodejs.org/dist/v20.14.0/node-v20.14.0-x64.msi" -OutFile $msiPath
+    Write-Host "Running silent installer (requires admin elevation if prompted)..." -ForegroundColor Cyan
+    $proc = Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$msiPath`" /qn /norestart" -Wait -PassThru
+    if ($proc.ExitCode -ne 0) {
+      Write-Host "Warning: Silent installation exited with code $($proc.ExitCode). Trying standard install..." -ForegroundColor Yellow
+      Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$msiPath`"" -Wait
+    }
+  } catch {
+    Write-Host "Error: Failed to download or install Node.js." -ForegroundColor Red
+    Write-Host $_.Exception.Message -ForegroundColor Yellow
+    Exit-With-Pause 1
+  } finally {
+    if (Test-Path $msiPath) { Remove-Item -Path $msiPath -Force }
+  }
+  
+  # Reload path variables to pick up the new Node installation
+  $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+  
+  # Re-verify
+  $nodeCheck = Get-Command node -ErrorAction SilentlyContinue
+  if (-not $nodeCheck) {
+    Write-Host "Error: Node.js installation completed, but the 'node' command is still not found in Path." -ForegroundColor Red
+    Write-Host "Please restart your terminal or computer and run this script again." -ForegroundColor Yellow
+    Exit-With-Pause 1
+  }
+  Write-Host "Node.js successfully installed!" -ForegroundColor Green
 }
 
 # 2. Check if npm is installed
 $npmCheck = Get-Command npm -ErrorAction SilentlyContinue
 if (-not $npmCheck) {
-  Write-Host "Error: npm is not installed. Please install npm and try again." -ForegroundColor Red
-  Exit-With-Pause 1
+  # Reload path again just in case
+  $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+  $npmCheck = Get-Command npm -ErrorAction SilentlyContinue
+  if (-not $npmCheck) {
+    Write-Host "Error: npm is not installed or not found in Path." -ForegroundColor Red
+    Exit-With-Pause 1
+  }
 }
 
 Write-Host "Node.js detected: $(node -v)"
