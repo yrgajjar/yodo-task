@@ -245,6 +245,56 @@ export default function Settings({ settings, onSaveSetting, onRefresh, workspace
     }
   };
 
+  const handleShortcutKeyDown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (e.key === 'Backspace' || e.key === 'Escape') {
+      setShortcut('');
+      return;
+    }
+
+    const keys = [];
+
+    if (e.ctrlKey) {
+      keys.push('Ctrl');
+    }
+    if (e.metaKey) {
+      keys.push('CommandOrControl');
+    }
+    if (e.altKey) {
+      keys.push('Alt');
+    }
+    if (e.shiftKey) {
+      keys.push('Shift');
+    }
+
+    const key = e.key;
+    const isModifier = ['Control', 'Shift', 'Alt', 'Meta'].includes(key);
+
+    if (isModifier) {
+      // Show partial modifier-only combination with trailing "+" to hint more keys needed
+      if (keys.length > 0) {
+        setShortcut(keys.join('+') + '+');
+      }
+      return;
+    }
+
+    // Non-modifier key pressed — finalize the shortcut
+    let keyName = key;
+    if (key === ' ') {
+      keyName = 'Space';
+    } else if (key.length === 1) {
+      keyName = key.toUpperCase();
+    } else {
+      keyName = key.charAt(0).toUpperCase() + key.slice(1);
+    }
+    keys.push(keyName);
+
+    const shortcutStr = keys.join('+');
+    setShortcut(shortcutStr);
+  };
+
   // Export JSON backup
   const handleExportBackup = async () => {
     try {
@@ -618,7 +668,8 @@ export default function Settings({ settings, onSaveSetting, onRefresh, workspace
                 style={{ ...styleInputText, fontFamily: 'monospace' }}
                 value={shortcut}
                 onChange={(e) => setShortcut(e.target.value)}
-                placeholder="e.g. CommandOrControl+Alt+Y"
+                onKeyDown={handleShortcutKeyDown}
+                placeholder="Press your shortcut keys here (e.g. press Ctrl, then Shift, then A)"
               />
               <button
                 type="button"
@@ -637,7 +688,7 @@ export default function Settings({ settings, onSaveSetting, onRefresh, workspace
               </button>
             </div>
             <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-              Configure key combination (e.g. <code>Ctrl+Alt+Y</code> or <code>Ctrl+Shift+Space</code>) to summon the mini todo widget system-wide.
+              Click the box then press your keys one by one — modifiers (<code>Ctrl</code>, <code>Shift</code>, <code>Alt</code>) will appear live as you hold them, then press the final key to complete. Press <code>Backspace</code> or <code>Esc</code> to clear.
             </span>
           </form>
         </div>
