@@ -7,20 +7,27 @@ Write-Host "==========================================" -ForegroundColor Green
 # Repository configuration (can be updated for user fork)
 $GITHUB_REPO = "yrgajjar/yodo-task"
 
+# Helper function to pause on exit so errors can be read
+function Exit-With-Pause ($code) {
+  Write-Host "Press any key to close this window..." -ForegroundColor Yellow
+  $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+  Exit $code
+}
+
 # 1. Check if Node.js is installed
 $nodeCheck = Get-Command node -ErrorAction SilentlyContinue
 if (-not $nodeCheck) {
   Write-Host "Error: Node.js is not installed." -ForegroundColor Red
   Write-Host "Please install Node.js (version 18 or newer) and run this script again." -ForegroundColor Yellow
   Write-Host "You can download Node.js from https://nodejs.org" -ForegroundColor Yellow
-  Exit 1
+  Exit-With-Pause 1
 }
 
 # 2. Check if npm is installed
 $npmCheck = Get-Command npm -ErrorAction SilentlyContinue
 if (-not $npmCheck) {
   Write-Host "Error: npm is not installed. Please install npm and try again." -ForegroundColor Red
-  Exit 1
+  Exit-With-Pause 1
 }
 
 Write-Host "Node.js detected: $(node -v)"
@@ -42,7 +49,7 @@ try {
 } catch {
   Write-Host "Error: Failed to download source zip from GitHub." -ForegroundColor Red
   Write-Host $_.Exception.Message -ForegroundColor Yellow
-  Exit 1
+  Exit-With-Pause 1
 }
 
 Write-Host "Extracting archive..." -ForegroundColor Cyan
@@ -58,7 +65,7 @@ try {
 } catch {
   Write-Host "Error: Failed to extract and install files." -ForegroundColor Red
   Write-Host $_.Exception.Message -ForegroundColor Yellow
-  Exit 1
+  Exit-With-Pause 1
 } finally {
   # Clean up temporary files
   if (Test-Path $tempExtractDir) { Remove-Item -Path $tempExtractDir -Recurse -Force }
@@ -71,21 +78,21 @@ Set-Location $installDir
 npm install
 if ($LASTEXITCODE -ne 0) {
   Write-Host "Error: npm install failed." -ForegroundColor Red
-  Exit 1
+  Exit-With-Pause 1
 }
 
 Write-Host "Building React static distribution..." -ForegroundColor Cyan
 npm run build
 if ($LASTEXITCODE -ne 0) {
   Write-Host "Error: Vite build failed." -ForegroundColor Red
-  Exit 1
+  Exit-With-Pause 1
 }
 
 Write-Host "Rebuilding better-sqlite3 native module..." -ForegroundColor Cyan
 npm rebuild better-sqlite3
 if ($LASTEXITCODE -ne 0) {
   Write-Host "Error: Native module rebuild failed." -ForegroundColor Red
-  Exit 1
+  Exit-With-Pause 1
 }
 
 # 6. Create PowerShell background launcher and cmd wrapper inside installation directory
@@ -97,14 +104,23 @@ param (
 )
 
 $port = 54321
-$listener = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue
-if (-not $listener) {
+$portActive = $false
+try {
+    $socket = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Any, $port)
+    $socket.Start()
+    $socket.Stop()
+} catch {
+    $portActive = $true
+}
+
+if (-not $portActive) {
   Start-Process -FilePath "node" -ArgumentList "$PSScriptRoot\src\main\server.js" -WindowStyle Hidden -WorkingDirectory "$PSScriptRoot"
   Start-Sleep -Seconds 2
 }
 
 if (-not $Silent) {
-  Start-Process "http://localhost:$port"
+  # Launch the Electron desktop app
+  Start-Process -FilePath "$PSScriptRoot\node_modules\.bin\electron.cmd" -ArgumentList "$PSScriptRoot" -WindowStyle Hidden -WorkingDirectory "$PSScriptRoot"
 }
 '@
 $launcherContent | Out-File -FilePath "$installDir\yodo-task-launcher.ps1" -Encoding UTF8
@@ -150,3 +166,6 @@ Write-Host "Installation complete! YoDo Task is ready." -ForegroundColor Green
 Write-Host "The application now runs as a persistent background process." -ForegroundColor Green
 Write-Host "You can run 'yodo-task' in any command prompt to open the board." -ForegroundColor Green
 Write-Host "==========================================" -ForegroundColor Green
+
+# Add a pause so the user can read the complete installation log before window closes
+Exit-With-Pause 0

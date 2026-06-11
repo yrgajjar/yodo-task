@@ -121,31 +121,22 @@ systemctl --user restart yodo-task.service
 # Enable linger so user-level services run at boot without active sessions
 sudo loginctl enable-linger "$USER" 2>/dev/null || true
 
-# 8. Create global command (yodo-task) to control daemon and launch web UI
+# 8. Create global command (yodo-task) to control daemon and launch Electron GUI
 echo "Creating global command /usr/local/bin/yodo-task..."
 cat <<EOF | sudo tee /usr/local/bin/yodo-task > /dev/null
 #!/bin/bash
-# yodo-task - Controlling script for YoDo Task
+# yodo-task - Launcher for YoDo Task Desktop App
 
 # Ensure systemd user service is running
 systemctl --user is-active --quiet yodo-task
 if [ \$? -ne 0 ]; then
-  echo "Starting background daemon..."
   systemctl --user start yodo-task
-  sleep 1
+  sleep 0.5
 fi
 
-PORT=\$(systemctl --user show yodo-task -p Environment | grep -o -E 'PORT=[0-9]+' | cut -d= -f2)
-if [ -z "\$PORT" ]; then
-  PORT=$PORT
-fi
-
-# Auto-open browser
-if command -v xdg-open > /dev/null; then
-  xdg-open "http://localhost:\$PORT"
-elif command -v sensible-browser > /dev/null; then
-  sensible-browser "http://localhost:\$PORT"
-fi
+# Run the Electron desktop app
+cd /opt/yodo-task
+exec ./node_modules/.bin/electron . "\$@" > /dev/null 2>&1 &
 EOF
 
 sudo chmod +x /usr/local/bin/yodo-task

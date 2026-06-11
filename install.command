@@ -119,25 +119,22 @@ EOF
 launchctl unload "$LAUNCH_AGENT_DIR/com.yodotask.app.plist" >/dev/null 2>&1 || true
 launchctl load "$LAUNCH_AGENT_DIR/com.yodotask.app.plist"
 
-# 7. Create global command (yodo-task) to control daemon and launch web UI
+# 7. Create global command (yodo-task) to control daemon and launch Electron GUI
 echo "Creating global launcher command /usr/local/bin/yodo-task..."
 cat <<EOF | sudo tee /usr/local/bin/yodo-task > /dev/null
 #!/bin/bash
-# yodo-task - Controlling script for YoDo Task
+# yodo-task - Launcher for YoDo Task Desktop App
 
 # Ensure LaunchAgent is active/running
 launchctl list com.yodotask.app >/dev/null 2>&1
 if [ \$? -ne 0 ]; then
-  echo "Starting background LaunchAgent..."
   launchctl load "$HOME/Library/LaunchAgents/com.yodotask.app.plist" 2>/dev/null
   launchctl start com.yodotask.app 2>/dev/null
-  sleep 1.5
 fi
 
-# Open browser
-if command -v open > /dev/null; then
-  open "http://localhost:54321"
-fi
+# Run the Electron desktop app
+cd /usr/local/yodo-task
+exec ./node_modules/.bin/electron . "\$@" > /dev/null 2>&1 &
 EOF
 
 sudo chmod +x /usr/local/bin/yodo-task

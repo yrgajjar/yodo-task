@@ -200,6 +200,11 @@ export default function Settings({ settings, onSaveSetting, onRefresh, workspace
       return;
     }
     
+    if (!api.isElectron) {
+      alert(`Format is valid: "${trimmed}". Global OS hotkeys can only be tested and used inside the Electron desktop application, not in a standard web browser.`);
+      return;
+    }
+
     const isValid = await api.testShortcut(trimmed);
     if (isValid) {
       alert(`Success: The shortcut "${trimmed}" is valid and available. The mini ToDo window was toggled!`);
@@ -221,11 +226,13 @@ export default function Settings({ settings, onSaveSetting, onRefresh, workspace
       return;
     }
 
-    // Call testShortcut to validate availability before saving
-    const isValid = await api.testShortcut(trimmed);
-    if (!isValid) {
-      alert(`The shortcut "${trimmed}" could not be registered. It may be invalid, or already taken by your OS or another application. Registration aborted.`);
-      return;
+    if (api.isElectron) {
+      // Call testShortcut to validate availability before saving
+      const isValid = await api.testShortcut(trimmed);
+      if (!isValid) {
+        alert(`The shortcut "${trimmed}" could not be registered. It may be invalid, or already taken by your OS or another application. Registration aborted.`);
+        return;
+      }
     }
 
     const result = await onSaveSetting('global_shortcut', trimmed);
@@ -233,7 +240,7 @@ export default function Settings({ settings, onSaveSetting, onRefresh, workspace
       alert(`Warning: The hotkey "${trimmed}" is already taken by your OS or another application. Falling back to default.`);
       await onRefresh();
     } else {
-      alert(`Global shortcut successfully updated and registered: "${trimmed}".`);
+      alert(`Global shortcut successfully updated: "${trimmed}"` + (api.isElectron ? ' and registered.' : ' (will be active in the desktop app).'));
       await onRefresh();
     }
   };
