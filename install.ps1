@@ -89,6 +89,17 @@ Write-Host "Extracting archive..." -ForegroundColor Cyan
 try {
   Expand-Archive -Path $zipPath -DestinationPath $tempExtractDir -Force
   
+  # Stop any running node and electron processes associated with yodo-task to avoid file locks
+  Write-Host "Stopping any running instances of YoDo Task to prevent file locks..." -ForegroundColor Cyan
+  try {
+      Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like "*yodo-task*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+      Get-WmiObject Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like "*yodo-task*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+      Get-Process -Name "electron" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+  } catch {
+      Stop-Process -Name "electron" -Force -ErrorAction SilentlyContinue
+  }
+  Start-Sleep -Seconds 1
+
   # Clean up existing files in target dir
   Get-ChildItem -Path $installDir | Remove-Item -Recurse -Force
   

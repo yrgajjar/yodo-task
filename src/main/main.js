@@ -578,7 +578,7 @@ app.whenReady().then(() => {
   registerAppShortcut(shortcutStr);
 
   // Register global shortcuts for Quick Add/Command Bar
-  const quickAddShortcuts = ['CommandOrControl+Alt+A', 'CommandOrControl+Shift+A', 'CommandOrControl+Alt+K'];
+  const quickAddShortcuts = ['CommandOrControl+Shift+A'];
   quickAddShortcuts.forEach(key => {
     try {
       globalShortcut.register(key, () => {

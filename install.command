@@ -48,6 +48,13 @@ if [ ! -f "$TEMP_TAR" ] || [ ! -s "$TEMP_TAR" ]; then
   exit 1
 fi
 
+# Stop any running service or process of yodo-task before updating files
+echo "Stopping any active instances for upgrade..."
+launchctl unload "$HOME/Library/LaunchAgents/com.yodotask.app.plist" 2>/dev/null || true
+pkill -f "yodo-task/src/main/server.js" 2>/dev/null || true
+pkill -f "electron" 2>/dev/null || true
+sleep 1
+
 echo "Extracting codebase..."
 sudo rm -rf /usr/local/yodo-task/*
 sudo tar -xzf "$TEMP_TAR" -C /usr/local/yodo-task --strip-components=1
