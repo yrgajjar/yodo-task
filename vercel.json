@@ -1,5 +1,5 @@
 {
-  "buildCommand": "echo 'No build required'",
+  "buildCommand": "mkdir -p dist && cp index.html install.sh install.ps1 install.command dist/ && cp -r public dist/",
   "installCommand": "echo 'No install required'",
   "routes": [
     { "src": "/install.sh", "dest": "/install.sh" },
