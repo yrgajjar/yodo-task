@@ -12,6 +12,9 @@ let miniWindow = null;
 let quickAddWindow = null;
 let tray = null;
 
+const distExists = fs.existsSync(path.join(__dirname, '../../dist/renderer/index.html'));
+const isDev = !app.isPackaged && !distExists;
+
 /**
  * Configure auto-start on boot for Windows, macOS, and Ubuntu.
  * @param {boolean} enabled 
@@ -116,7 +119,6 @@ function createMainWindow() {
     }
   });
 
-  const isDev = !app.isPackaged;
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
     // Open DevTools in dev mode
@@ -173,7 +175,6 @@ function createMiniWindow() {
     }
   });
 
-  const isDev = !app.isPackaged;
   if (isDev) {
     miniWindow.loadURL('http://localhost:5173?window=mini');
   } else {
@@ -220,7 +221,6 @@ function createQuickAddWindow() {
     }
   });
 
-  const isDev = !app.isPackaged;
   if (isDev) {
     quickAddWindow.loadURL('http://localhost:5173?window=quickadd');
   } else {
@@ -577,15 +577,18 @@ app.whenReady().then(() => {
   const shortcutStr = settings.global_shortcut || 'CommandOrControl+Alt+Y';
   registerAppShortcut(shortcutStr);
 
-  // Register Quick Add floating window shortcut
-  try {
-    globalShortcut.register('CommandOrControl+Alt+K', () => {
-      toggleQuickAddWindow();
-    });
-    console.log('[Shortcut] Registered global Quick Add: Ctrl+Alt+K');
-  } catch (err) {
-    console.error('[Shortcut] Failed to register Quick Add shortcut:', err);
-  }
+  // Register global shortcuts for Quick Add/Command Bar
+  const quickAddShortcuts = ['CommandOrControl+Alt+A', 'CommandOrControl+Shift+A', 'CommandOrControl+Alt+K'];
+  quickAddShortcuts.forEach(key => {
+    try {
+      globalShortcut.register(key, () => {
+        toggleQuickAddWindow();
+      });
+      console.log(`[Shortcut] Registered global Quick Add: ${key}`);
+    } catch (err) {
+      console.error(`[Shortcut] Failed to register global Quick Add shortcut ${key}:`, err);
+    }
+  });
 
   // Start listener processes
   registerIpcHandlers();
