@@ -1,162 +1,137 @@
 #!/bin/bash
-# install.sh - Production installer script for YoDo Task (Linux)
+# install.sh - Production installer for YoDo Task (Linux/Ubuntu)
+# Builds an Electron .deb package so global hotkeys and desktop integration work properly.
+
+set -e
 
 echo "=========================================="
-# shellcheck disable=SC2154
 echo "    Installing YoDo Task (Linux/Ubuntu)   "
 echo "=========================================="
 
-# Repository configuration (can be updated for user fork)
 GITHUB_REPO="yrgajjar/yodo-task"
+INSTALL_SRC="/opt/yodo-task-src"
+DEB_OUT="$INSTALL_SRC/dist-packaged"
 
-# 1. Accept port as argument (defaults to 54321)
-PORT="${1:-54321}"
-if ! [[ "$PORT" =~ ^[0-9]+$ ]]; then
-  echo "Error: Port must be a numeric value."
-  exit 1
-fi
-
-echo "Configuration: Port set to $PORT"
-
-# 2. Check if Node.js and npm are installed
+# ── 1. Check Node.js + npm ─────────────────────────────────────────────────
 if ! command -v node &> /dev/null; then
-  echo "Error: Node.js is not installed."
-  echo "Please install Node.js (version 18 or newer) and try again."
+  echo "Node.js is not installed. Attempting to install via NodeSource..."
+  curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+  sudo apt-get install -y nodejs
+fi
+
+if ! command -v node &> /dev/null || ! command -v npm &> /dev/null; then
+  echo "ERROR: Node.js / npm could not be installed. Please install Node.js 20+ manually."
   exit 1
 fi
 
-if ! command -v npm &> /dev/null; then
-  echo "Error: npm is not installed."
-  echo "Please install npm and try again."
-  exit 1
-fi
+echo "Node.js: $(node -v)   npm: $(npm -v)"
 
-echo "Node.js detected: $(node -v)"
-echo "npm detected: $(npm -v)"
+# ── 2. Install system build dependencies (needed by better-sqlite3 + electron-builder) ──
+echo "Installing required system dependencies..."
+sudo apt-get install -y build-essential libsqlite3-dev rpm fakeroot dpkg 2>/dev/null || true
 
-# 3. Create target directory
-echo "Creating installation directory in /opt/yodo-task..."
-sudo mkdir -p /opt/yodo-task
+# ── 3. Download source from GitHub ────────────────────────────────────────
+echo "Stopping any running YoDo Task instances..."
+pkill -f "yodo-task" 2>/dev/null || true
+pkill -f "electron"  2>/dev/null || true
+sleep 1
 
-# 4. Download and extract codebase from GitHub
-echo "Downloading codebase from GitHub ($GITHUB_REPO)..."
+echo "Downloading source from GitHub ($GITHUB_REPO)..."
 TEMP_TAR="/tmp/yodo-task-$(date +%s).tar.gz"
 
 if command -v curl &> /dev/null; then
   curl -L -s "https://github.com/$GITHUB_REPO/archive/refs/heads/main.tar.gz" -o "$TEMP_TAR"
-elif command -v wget &> /dev/null; then
-  wget -q "https://github.com/$GITHUB_REPO/archive/refs/heads/main.tar.gz" -O "$TEMP_TAR"
 else
-  echo "Error: Neither curl nor wget is installed. Cannot download application source."
+  wget -q "https://github.com/$GITHUB_REPO/archive/refs/heads/main.tar.gz" -O "$TEMP_TAR"
+fi
+
+if [ ! -s "$TEMP_TAR" ]; then
+  echo "ERROR: Failed to download source archive from GitHub."
   exit 1
 fi
 
-if [ ! -f "$TEMP_TAR" ] || [ ! -s "$TEMP_TAR" ]; then
-  echo "Error: Failed to download the source code archive from GitHub."
-  exit 1
-fi
-
-# Stop any running service or process of yodo-task before updating files
-echo "Stopping any active instances for upgrade..."
-systemctl --user stop yodo-task.service 2>/dev/null || true
-pkill -f "yodo-task/src/main/server.js" 2>/dev/null || true
-pkill -f "electron" 2>/dev/null || true
-sleep 1
-
-echo "Extracting codebase..."
-sudo rm -rf /opt/yodo-task/*
-sudo tar -xzf "$TEMP_TAR" -C /opt/yodo-task --strip-components=1
+echo "Extracting source..."
+sudo rm -rf "$INSTALL_SRC"
+sudo mkdir -p "$INSTALL_SRC"
+sudo tar -xzf "$TEMP_TAR" -C "$INSTALL_SRC" --strip-components=1
 rm -f "$TEMP_TAR"
+sudo chown -R "$USER":"$USER" "$INSTALL_SRC"
 
-# 5. Fix permissions
-echo "Setting permissions for /opt/yodo-task..."
-sudo chown -R "$USER":"$USER" /opt/yodo-task
-
-# 6. Install dependencies and compile
-echo "Installing application dependencies..."
-cd /opt/yodo-task || exit 1
-
+# ── 4. Install npm dependencies ────────────────────────────────────────────
+echo "Installing npm dependencies..."
+cd "$INSTALL_SRC"
 npm install
-if [ $? -ne 0 ]; then
-  echo "Error: npm install failed."
-  exit 1
-fi
 
-echo "Building React static distribution..."
+# ── 5. Build React renderer ────────────────────────────────────────────────
+echo "Building React UI bundle..."
 npm run build
-if [ $? -ne 0 ]; then
-  echo "Error: Vite build failed."
+
+# ── 6. Rebuild native SQLite module for Electron ──────────────────────────
+echo "Rebuilding better-sqlite3 for Electron..."
+npm rebuild better-sqlite3 || ./node_modules/.bin/electron-rebuild -f -w better-sqlite3
+
+# ── 7. Package Electron app as .deb ───────────────────────────────────────
+echo "Packaging Electron desktop app (.deb)..."
+npm run package:linux
+
+# Find the generated .deb
+DEB_FILE=$(find "$DEB_OUT" -maxdepth 1 -name "*.deb" | head -n 1)
+if [ -z "$DEB_FILE" ]; then
+  echo "ERROR: .deb package was not produced. Check electron-builder output above."
   exit 1
 fi
 
-echo "Rebuilding better-sqlite3 native module..."
-npm rebuild better-sqlite3
-if [ $? -ne 0 ]; then
-  echo "Error: Rebuilding better-sqlite3 failed."
-  exit 1
+echo "Installing .deb package: $DEB_FILE"
+sudo dpkg -i "$DEB_FILE"
+# Fix any missing dependencies
+sudo apt-get install -f -y 2>/dev/null || true
+
+# ── 8. Create .desktop entry (redundant if .deb already does it, but ensures it) ──
+DESKTOP_ENTRY_PATH="/usr/share/applications/yodo-task.desktop"
+if [ ! -f "$DESKTOP_ENTRY_PATH" ]; then
+  echo "Creating desktop application entry..."
+  INSTALLED_BIN=$(find /opt /usr -name "yodo-task" -type f -executable 2>/dev/null | head -n 1)
+  INSTALLED_ICON=$(find /opt /usr -name "icon.png" -path "*/yodo*" 2>/dev/null | head -n 1)
+  if [ -n "$INSTALLED_BIN" ]; then
+    sudo tee "$DESKTOP_ENTRY_PATH" > /dev/null <<EOF
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=YoDo Task
+Comment=A local-first ToDo app with global hotkeys
+Exec=$INSTALLED_BIN
+Icon=${INSTALLED_ICON:-yodo-task}
+StartupNotify=true
+Terminal=false
+Categories=Office;Utility;
+Keywords=todo;task;productivity;
+EOF
+    sudo chmod 644 "$DESKTOP_ENTRY_PATH"
+    echo "Desktop entry created at $DESKTOP_ENTRY_PATH"
+  fi
 fi
 
-# 7. Configure systemd user service
-echo "Configuring persistent user-level systemd daemon..."
-SYSTEMD_USER_DIR="$HOME/.config/systemd/user"
-mkdir -p "$SYSTEMD_USER_DIR"
+# Update icon/desktop caches
+sudo update-desktop-database /usr/share/applications/ 2>/dev/null || true
+gtk-update-icon-cache 2>/dev/null || true
 
-NODE_PATH=$(command -v node)
+echo "=========================================="
+echo "  YoDo Task installed successfully!"
+echo ""
+echo "  Open from: Application Menu → YoDo Task"
+echo "  Or run:    yodo-task"
+echo ""
+echo "  Global hotkeys (Ctrl+Shift+Space / Ctrl+Shift+A)"
+echo "  will work system-wide once the app is open."
+echo "=========================================="
 
-cat <<EOF > "$SYSTEMD_USER_DIR/yodo-task.service"
-[Unit]
-Description=YoDo Task Manager Daemon
-After=network.target
-
-[Service]
-Type=simple
-WorkingDirectory=/opt/yodo-task
-ExecStart=$NODE_PATH src/main/server.js
-Restart=always
-RestartSec=5
-Environment=PORT=$PORT
-
-[Install]
-WantedBy=default.target
-EOF
-
-# Reload and enable/start the service
-systemctl --user daemon-reload
-systemctl --user enable yodo-task.service
-systemctl --user restart yodo-task.service
-
-# Enable linger so user-level services run at boot without active sessions
-sudo loginctl enable-linger "$USER" 2>/dev/null || true
-
-# 8. Create global command (yodo-task) to control daemon and launch Electron GUI
-echo "Creating global command /usr/local/bin/yodo-task..."
-cat <<EOF | sudo tee /usr/local/bin/yodo-task > /dev/null
-#!/bin/bash
-# yodo-task - Launcher for YoDo Task Desktop App
-
-# Ensure systemd user service is running
-systemctl --user is-active --quiet yodo-task
-if [ \$? -ne 0 ]; then
-  systemctl --user start yodo-task
-  sleep 0.5
+# ── 9. Launch the app immediately ─────────────────────────────────────────
+echo "Launching YoDo Task..."
+INSTALLED_BIN=$(find /opt /usr -name "yodo-task" -type f -executable 2>/dev/null | head -n 1)
+if [ -n "$INSTALLED_BIN" ]; then
+  nohup "$INSTALLED_BIN" > /dev/null 2>&1 &
+else
+  echo "App installed. Open it from your Application Menu."
 fi
 
-# Run the Electron desktop app
-cd /opt/yodo-task
-exec ./node_modules/.bin/electron . "\$@" > /dev/null 2>&1 &
-EOF
-
-sudo chmod +x /usr/local/bin/yodo-task
-
-echo "=========================================="
-echo "Installation complete! YoDo Task is ready."
-echo "The application runs as a persistent service."
-echo "  - Start:   systemctl --user start yodo-task"
-echo "  - Stop:    systemctl --user stop yodo-task"
-echo "  - Logs:    journalctl --user -u yodo-task -f"
-echo "=========================================="
-
-# Auto-launch the application immediately
-echo "Auto-launching YoDo Task..."
-/usr/local/bin/yodo-task
 exit 0

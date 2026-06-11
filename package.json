@@ -12,7 +12,10 @@
     "start": "node src/main/server.js",
     "electron": "electron .",
     "rebuild": "electron-rebuild -f -w better-sqlite3",
-    "package": "electron-builder"
+    "package": "electron-builder",
+    "package:linux": "electron-builder --linux deb AppImage",
+    "package:win": "electron-builder --win nsis",
+    "package:mac": "electron-builder --mac dmg"
   },
   "dependencies": {
     "better-sqlite3": "^11.8.0",

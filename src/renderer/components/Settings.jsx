@@ -583,45 +583,51 @@ export default function Settings({ settings, onSaveSetting, onRefresh, workspace
             {/* Autostart check */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: 'var(--bg-app)', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginRight: '16px' }}>
-                <span style={{ fontSize: '13px', fontWeight: '600', color: api.isElectron ? 'var(--text-main)' : 'var(--text-muted)' }}>Launch on Startup</span>
+                <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>
+                  Launch on Startup
+                  {!api.isElectron && <span style={{ marginLeft: '6px', fontSize: '10px', fontWeight: '500', color: 'var(--primary)', background: 'rgba(99,102,241,0.12)', borderRadius: '4px', padding: '1px 5px' }}>Desktop app</span>}
+                </span>
                 <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Automatically start YoDo Task on boot.</span>
               </div>
               <input
                 type="checkbox"
                 checked={settings.auto_start === 'true' || settings.auto_start === true}
                 onChange={handleAutostartToggle}
-                disabled={!api.isElectron}
-                style={{ width: '18px', height: '18px', accentColor: 'var(--primary)', cursor: api.isElectron ? 'pointer' : 'not-allowed' }}
+                style={{ width: '18px', height: '18px', accentColor: 'var(--primary)', cursor: 'pointer' }}
               />
             </div>
 
             {/* Close to tray check */}
             <div style={{ display: 'flex', alignItems: 'center', justifySelf: 'stretch', justifyContent: 'space-between', padding: '14px 16px', background: 'var(--bg-app)', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginRight: '16px' }}>
-                <span style={{ fontSize: '13px', fontWeight: '600', color: api.isElectron ? 'var(--text-main)' : 'var(--text-muted)' }}>Minimize to Tray</span>
+                <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>
+                  Minimize to Tray
+                  {!api.isElectron && <span style={{ marginLeft: '6px', fontSize: '10px', fontWeight: '500', color: 'var(--primary)', background: 'rgba(99,102,241,0.12)', borderRadius: '4px', padding: '1px 5px' }}>Desktop app</span>}
+                </span>
                 <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Close button runs app in background.</span>
               </div>
               <input
                 type="checkbox"
                 checked={settings.close_to_tray === 'true' || settings.close_to_tray === true}
                 onChange={(e) => onSaveSetting('close_to_tray', e.target.checked)}
-                disabled={!api.isElectron}
-                style={{ width: '18px', height: '18px', accentColor: 'var(--primary)', cursor: api.isElectron ? 'pointer' : 'not-allowed' }}
+                style={{ width: '18px', height: '18px', accentColor: 'var(--primary)', cursor: 'pointer' }}
               />
             </div>
 
             {/* Always on top check */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: 'var(--bg-app)', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginRight: '16px' }}>
-                <span style={{ fontSize: '13px', fontWeight: '600', color: api.isElectron ? 'var(--text-main)' : 'var(--text-muted)' }}>Mini Window Floats</span>
+                <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-main)' }}>
+                  Mini Window Floats
+                  {!api.isElectron && <span style={{ marginLeft: '6px', fontSize: '10px', fontWeight: '500', color: 'var(--primary)', background: 'rgba(99,102,241,0.12)', borderRadius: '4px', padding: '1px 5px' }}>Desktop app</span>}
+                </span>
                 <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Mini Spotlight stays always on top.</span>
               </div>
               <input
                 type="checkbox"
                 checked={settings.always_on_top === 'true' || settings.always_on_top === true}
                 onChange={handleAlwaysOnTopToggle}
-                disabled={!api.isElectron}
-                style={{ width: '18px', height: '18px', accentColor: 'var(--primary)', cursor: api.isElectron ? 'pointer' : 'not-allowed' }}
+                style={{ width: '18px', height: '18px', accentColor: 'var(--primary)', cursor: 'pointer' }}
               />
             </div>
 

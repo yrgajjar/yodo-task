@@ -1,215 +1,168 @@
-# install.ps1 - Production installer script for YoDo Task (Windows)
+# install.ps1 - Production installer for YoDo Task (Windows)
+# Builds an Electron NSIS installer so global hotkeys and app list integration work properly.
 
 Write-Host "==========================================" -ForegroundColor Green
 Write-Host "    Installing YoDo Task (Windows)        " -ForegroundColor Green
 Write-Host "==========================================" -ForegroundColor Green
 
-# Repository configuration (can be updated for user fork)
+# Repository configuration
 $GITHUB_REPO = "yrgajjar/yodo-task"
 
-# Helper function to pause on exit so errors can be read
+# Helper: pause before exit so user can read logs
 function Exit-With-Pause ($code) {
+  Write-Host ""
   Write-Host "Press any key to close this window..." -ForegroundColor Yellow
   $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
   Exit $code
 }
 
-# 1. Check if Node.js is installed, and install if missing
+# ── 1. Check / Install Node.js ────────────────────────────────────────────
 $nodeCheck = Get-Command node -ErrorAction SilentlyContinue
 if (-not $nodeCheck) {
-  Write-Host "Node.js is not detected on your system." -ForegroundColor Yellow
-  Write-Host "Downloading and installing Node.js 20 LTS silently..." -ForegroundColor Cyan
-  
+  Write-Host "Node.js not found. Downloading and installing Node.js 20 LTS..." -ForegroundColor Yellow
   $msiPath = "$env:TEMP\node-install.msi"
   try {
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     Invoke-WebRequest -Uri "https://nodejs.org/dist/v20.14.0/node-v20.14.0-x64.msi" -OutFile $msiPath
-    Write-Host "Running silent installer (requires admin elevation if prompted)..." -ForegroundColor Cyan
-    $proc = Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$msiPath`" /qn /norestart" -Wait -PassThru
+    $proc = Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$msiPath`" /qn /norestart ADDLOCAL=ALL" -Wait -PassThru
     if ($proc.ExitCode -ne 0) {
-      Write-Host "Warning: Silent installation exited with code $($proc.ExitCode). Trying standard install..." -ForegroundColor Yellow
       Start-Process -FilePath "msiexec.exe" -ArgumentList "/i `"$msiPath`"" -Wait
     }
   } catch {
-    Write-Host "Error: Failed to download or install Node.js." -ForegroundColor Red
-    Write-Host $_.Exception.Message -ForegroundColor Yellow
+    Write-Host "ERROR: Could not download/install Node.js: $($_.Exception.Message)" -ForegroundColor Red
     Exit-With-Pause 1
   } finally {
     if (Test-Path $msiPath) { Remove-Item -Path $msiPath -Force }
   }
-  
-  # Reload path variables to pick up the new Node installation
+  # Refresh PATH
   $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-  
-  # Re-verify
   $nodeCheck = Get-Command node -ErrorAction SilentlyContinue
   if (-not $nodeCheck) {
-    Write-Host "Error: Node.js installation completed, but the 'node' command is still not found in Path." -ForegroundColor Red
-    Write-Host "Please restart your terminal or computer and run this script again." -ForegroundColor Yellow
+    Write-Host "ERROR: Node.js installed but 'node' command still not found. Please restart and re-run." -ForegroundColor Red
     Exit-With-Pause 1
   }
-  Write-Host "Node.js successfully installed!" -ForegroundColor Green
+  Write-Host "Node.js installed successfully!" -ForegroundColor Green
 }
 
-# 2. Check if npm is installed
+# Refresh PATH once more to ensure npm is available
+$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+
 $npmCheck = Get-Command npm -ErrorAction SilentlyContinue
 if (-not $npmCheck) {
-  # Reload path again just in case
-  $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-  $npmCheck = Get-Command npm -ErrorAction SilentlyContinue
-  if (-not $npmCheck) {
-    Write-Host "Error: npm is not installed or not found in Path." -ForegroundColor Red
-    Exit-With-Pause 1
-  }
+  Write-Host "ERROR: npm not found. Please install Node.js 20+ from https://nodejs.org and re-run." -ForegroundColor Red
+  Exit-With-Pause 1
 }
 
-Write-Host "Node.js detected: $(node -v)"
-Write-Host "npm detected: $(npm -v)"
+Write-Host "Node.js: $(node -v)   npm: $(npm -v)" -ForegroundColor Cyan
 
-# 3. Target directory (Production Safe: AppData)
-$installDir = "$env:LOCALAPPDATA\yodo-task"
-Write-Host "Creating installation directory: $installDir..." -ForegroundColor Cyan
-New-Item -ItemType Directory -Force -Path $installDir | Out-Null
+# ── 2. Stop any running instances ─────────────────────────────────────────
+Write-Host "Stopping any running YoDo Task instances..." -ForegroundColor Cyan
+try {
+  Get-Process -Name "Yodo Task","yodo-task","electron" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+  Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -like "*yodo-task*" } |
+    ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+} catch {}
+Start-Sleep -Seconds 1
 
-# 4. Download and extract codebase from GitHub
-Write-Host "Downloading codebase from GitHub ($GITHUB_REPO)..." -ForegroundColor Cyan
-$zipPath = "$env:TEMP\yodo-task-$(Get-Random).zip"
-$tempExtractDir = "$env:TEMP\yodo-task-temp-$(Get-Random)"
+# ── 3. Download and extract source ────────────────────────────────────────
+$buildDir = "$env:LOCALAPPDATA\yodo-task-build"
+$zipPath  = "$env:TEMP\yodo-task-$(Get-Random).zip"
+$tmpDir   = "$env:TEMP\yodo-task-tmp-$(Get-Random)"
 
+Write-Host "Downloading source from GitHub ($GITHUB_REPO)..." -ForegroundColor Cyan
 try {
   [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
   Invoke-WebRequest -Uri "https://github.com/$GITHUB_REPO/archive/refs/heads/main.zip" -OutFile $zipPath
 } catch {
-  Write-Host "Error: Failed to download source zip from GitHub." -ForegroundColor Red
-  Write-Host $_.Exception.Message -ForegroundColor Yellow
+  Write-Host "ERROR: Download failed: $($_.Exception.Message)" -ForegroundColor Red
   Exit-With-Pause 1
 }
 
-Write-Host "Extracting archive..." -ForegroundColor Cyan
+Write-Host "Extracting source..." -ForegroundColor Cyan
 try {
-  Expand-Archive -Path $zipPath -DestinationPath $tempExtractDir -Force
-  
-  # Stop any running node and electron processes associated with yodo-task to avoid file locks
-  Write-Host "Stopping any running instances of YoDo Task to prevent file locks..." -ForegroundColor Cyan
-  try {
-      Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like "*yodo-task*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
-      Get-WmiObject Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like "*yodo-task*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
-      Get-Process -Name "electron" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-  } catch {
-      Stop-Process -Name "electron" -Force -ErrorAction SilentlyContinue
-  }
-  Start-Sleep -Seconds 1
-
-  # Clean up existing files in target dir
-  Get-ChildItem -Path $installDir | Remove-Item -Recurse -Force
-  
-  # Move extracted files to target directory (strip top-level directory wrapper)
-  $extractedRoot = Get-ChildItem -Path $tempExtractDir | Select-Object -First 1
-  Copy-Item -Path "$($extractedRoot.FullName)\*" -Destination $installDir -Recurse -Force
+  Expand-Archive -Path $zipPath -DestinationPath $tmpDir -Force
+  if (Test-Path $buildDir) { Remove-Item -Path $buildDir -Recurse -Force }
+  New-Item -ItemType Directory -Force -Path $buildDir | Out-Null
+  $extracted = Get-ChildItem -Path $tmpDir | Select-Object -First 1
+  Copy-Item -Path "$($extracted.FullName)\*" -Destination $buildDir -Recurse -Force
 } catch {
-  Write-Host "Error: Failed to extract and install files." -ForegroundColor Red
-  Write-Host $_.Exception.Message -ForegroundColor Yellow
+  Write-Host "ERROR: Extraction failed: $($_.Exception.Message)" -ForegroundColor Red
   Exit-With-Pause 1
 } finally {
-  # Clean up temporary files
-  if (Test-Path $tempExtractDir) { Remove-Item -Path $tempExtractDir -Recurse -Force }
-  if (Test-Path $zipPath) { Remove-Item -Path $zipPath -Force }
+  if (Test-Path $tmpDir)   { Remove-Item -Path $tmpDir   -Recurse -Force }
+  if (Test-Path $zipPath)  { Remove-Item -Path $zipPath  -Force }
 }
 
-# 5. Install dependencies and compile
-Write-Host "Installing application dependencies..." -ForegroundColor Cyan
-Set-Location $installDir
+# ── 4. npm install ────────────────────────────────────────────────────────
+Write-Host "Installing npm dependencies..." -ForegroundColor Cyan
+Set-Location $buildDir
 npm install
 if ($LASTEXITCODE -ne 0) {
-  Write-Host "Error: npm install failed." -ForegroundColor Red
+  Write-Host "ERROR: npm install failed." -ForegroundColor Red
   Exit-With-Pause 1
 }
 
-Write-Host "Building React static distribution..." -ForegroundColor Cyan
+# ── 5. Build React bundle ─────────────────────────────────────────────────
+Write-Host "Building React UI bundle..." -ForegroundColor Cyan
 npm run build
 if ($LASTEXITCODE -ne 0) {
-  Write-Host "Error: Vite build failed." -ForegroundColor Red
+  Write-Host "ERROR: Vite build failed." -ForegroundColor Red
   Exit-With-Pause 1
 }
 
-Write-Host "Rebuilding better-sqlite3 native module..." -ForegroundColor Cyan
+# ── 6. Rebuild native SQLite for Electron ─────────────────────────────────
+Write-Host "Rebuilding better-sqlite3 for Electron..." -ForegroundColor Cyan
 npm rebuild better-sqlite3
 if ($LASTEXITCODE -ne 0) {
-  Write-Host "Error: Native module rebuild failed." -ForegroundColor Red
+  # Try electron-rebuild as fallback
+  & ".\node_modules\.bin\electron-rebuild.cmd" -f -w better-sqlite3
+}
+
+# ── 7. Build NSIS installer with electron-builder ────────────────────────
+Write-Host "Building Electron NSIS installer..." -ForegroundColor Cyan
+npm run package:win
+if ($LASTEXITCODE -ne 0) {
+  Write-Host "ERROR: electron-builder packaging failed." -ForegroundColor Red
   Exit-With-Pause 1
 }
 
-# 6. Create PowerShell background launcher and cmd wrapper inside installation directory
-Write-Host "Creating command launcher scripts..." -ForegroundColor Cyan
-
-$launcherContent = @'
-param (
-    [switch]$Silent
-)
-
-$port = 54321
-$portActive = $false
-try {
-    $socket = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Any, $port)
-    $socket.Start()
-    $socket.Stop()
-} catch {
-    $portActive = $true
+# ── 8. Run the NSIS installer silently ────────────────────────────────────
+$nsisExe = Get-ChildItem -Path "$buildDir\dist-packaged" -Filter "*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $nsisExe) {
+  Write-Host "ERROR: NSIS .exe installer not found in dist-packaged/." -ForegroundColor Red
+  Exit-With-Pause 1
 }
 
-if (-not $portActive) {
-  Start-Process -FilePath "node" -ArgumentList "$PSScriptRoot\src\main\server.js" -WindowStyle Hidden -WorkingDirectory "$PSScriptRoot"
-  Start-Sleep -Seconds 2
+Write-Host "Installing Yodo Task via NSIS installer: $($nsisExe.FullName)" -ForegroundColor Cyan
+Write-Host "(This installs to Program Files and adds Start Menu + Desktop shortcuts)" -ForegroundColor Gray
+$proc = Start-Process -FilePath $nsisExe.FullName -ArgumentList "/S" -Wait -PassThru
+if ($proc.ExitCode -ne 0) {
+  Write-Host "Warning: NSIS installer exited with code $($proc.ExitCode). Trying interactive mode..." -ForegroundColor Yellow
+  Start-Process -FilePath $nsisExe.FullName -Wait
 }
-
-if (-not $Silent) {
-  # Launch the Electron desktop app
-  Start-Process -FilePath "$PSScriptRoot\node_modules\.bin\electron.cmd" -ArgumentList "$PSScriptRoot" -WindowStyle Hidden -WorkingDirectory "$PSScriptRoot"
-}
-'@
-$launcherContent | Out-File -FilePath "$installDir\yodo-task-launcher.ps1" -Encoding UTF8
-
-$cmdContent = @"
-@echo off
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0yodo-task-launcher.ps1" %*
-"@
-$cmdContent | Out-File -FilePath "$installDir\yodo-task.cmd" -Encoding ASCII
-
-# Append installation directory to the User Path environment variable if not already present
-$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
-if ($userPath -notlike "*$installDir*") {
-  Write-Host "Registering global 'yodo-task' command to User PATH environment variable..." -ForegroundColor Cyan
-  [Environment]::SetEnvironmentVariable("Path", "$userPath;$installDir", "User")
-  # Update local session path variable
-  $env:Path += ";$installDir"
-}
-
-# 7. Configure autostart in Windows Startup Folder
-Write-Host "Configuring boot autostart..." -ForegroundColor Cyan
-try {
-  $StartupFolder = [System.IO.Path]::Combine([System.Environment]::GetFolderPath('Startup'), 'YoDo Task.lnk')
-  $WshShell = New-Object -ComObject WScript.Shell
-  $Shortcut = $WshShell.CreateShortcut($StartupFolder)
-  $Shortcut.TargetPath = "powershell.exe"
-  $Shortcut.Arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ""$installDir\yodo-task-launcher.ps1"" -Silent"
-  $Shortcut.WorkingDirectory = $installDir
-  $Shortcut.Description = "Start YoDo Task Server Silently in Background"
-  $Shortcut.WindowStyle = 7 # Minimized/Hidden
-  $Shortcut.Save()
-  Write-Host "Autostart shortcut created in Windows Startup Folder." -ForegroundColor Green
-} catch {
-  Write-Host "Warning: Failed to configure autostart shortcut." -ForegroundColor Yellow
-}
-
-# 8. Start the application
-Write-Host "Starting YoDo Task in background..." -ForegroundColor Cyan
-Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File ""$installDir\yodo-task-launcher.ps1""" -WindowStyle Hidden
 
 Write-Host "==========================================" -ForegroundColor Green
-Write-Host "Installation complete! YoDo Task is ready." -ForegroundColor Green
-Write-Host "The application now runs as a persistent background process." -ForegroundColor Green
-Write-Host "You can run 'yodo-task' in any command prompt to open the board." -ForegroundColor Green
+Write-Host "  YoDo Task installed successfully!" -ForegroundColor Green
+Write-Host ""
+Write-Host "  - Open from: Start Menu or Desktop shortcut 'Yodo Task'" -ForegroundColor White
+Write-Host "  - Global hotkeys work once the app is running:" -ForegroundColor White
+Write-Host "      Ctrl+Shift+Space  → Mini Todo Popup" -ForegroundColor Cyan
+Write-Host "      Ctrl+Shift+A      → Quick Add Task" -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor Green
 
-# Add a pause so the user can read the complete installation log before window closes
+# ── 9. Launch the app ─────────────────────────────────────────────────────
+Write-Host "Launching Yodo Task..." -ForegroundColor Cyan
+$installedExe = @(
+  "$env:LOCALAPPDATA\Programs\yodo-task\Yodo Task.exe",
+  "$env:ProgramFiles\Yodo Task\Yodo Task.exe",
+  "${env:ProgramFiles(x86)}\Yodo Task\Yodo Task.exe"
+) | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+if ($installedExe) {
+  Start-Process -FilePath $installedExe
+} else {
+  Write-Host "App installed. Open it from the Start Menu or Desktop shortcut." -ForegroundColor Yellow
+}
+
 Exit-With-Pause 0

@@ -1,101 +1,102 @@
 #!/bin/bash
+# install.command - Production installer for YoDo Task (macOS)
+# Builds an Electron DMG and installs the .app to /Applications.
 
-# install.command - Production installer script for YoDo Task (macOS)
+set -e
 
 echo "=========================================="
 echo "    Installing YoDo Task (macOS)          "
 echo "=========================================="
 
-# Repository configuration (can be updated for user fork)
 GITHUB_REPO="yrgajjar/yodo-task"
+INSTALL_SRC="$HOME/.yodo-task-build"
+APP_NAME="Yodo Task.app"
+APPS_DIR="/Applications"
 
-# 1. Check if Node.js and npm are installed
+# ── 1. Check Node.js / npm ─────────────────────────────────────────────────
 if ! command -v node &> /dev/null; then
-  echo "Error: Node.js is not installed."
-  echo "Please install Node.js (version 18 or newer) and run this script again."
-  echo "You can install Node.js using Homebrew: brew install node"
-  echo "Or download the installer from https://nodejs.org"
-  exit 1
+  echo "Node.js not found."
+  if command -v brew &> /dev/null; then
+    echo "Installing via Homebrew..."
+    brew install node
+  else
+    echo "ERROR: Please install Node.js 20+ from https://nodejs.org and re-run."
+    exit 1
+  fi
 fi
 
-if ! command -v npm &> /dev/null; then
-  echo "Error: npm is not installed. Please install npm and try again."
-  exit 1
-fi
+echo "Node.js: $(node -v)   npm: $(npm -v)"
 
-echo "Node.js detected: $(node -v)"
-echo "npm detected: $(npm -v)"
+# ── 2. Install system build tools ─────────────────────────────────────────
+xcode-select --install 2>/dev/null || true
 
-# 2. Target installation directory
-echo "Creating installation directory in /usr/local/yodo-task..."
-sudo mkdir -p /usr/local/yodo-task
-
-# 3. Download and extract codebase from GitHub
-echo "Downloading codebase from GitHub ($GITHUB_REPO)..."
-TEMP_TAR="/tmp/yodo-task-$(date +%s).tar.gz"
-
-if command -v curl &> /dev/null; then
-  curl -L -s "https://github.com/$GITHUB_REPO/archive/refs/heads/main.tar.gz" -o "$TEMP_TAR"
-elif command -v wget &> /dev/null; then
-  wget -q "https://github.com/$GITHUB_REPO/archive/refs/heads/main.tar.gz" -O "$TEMP_TAR"
-else
-  echo "Error: Neither curl nor wget is installed. Cannot download source code."
-  exit 1
-fi
-
-if [ ! -f "$TEMP_TAR" ] || [ ! -s "$TEMP_TAR" ]; then
-  echo "Error: Failed to download the source code archive from GitHub."
-  exit 1
-fi
-
-# Stop any running service or process of yodo-task before updating files
-echo "Stopping any active instances for upgrade..."
-launchctl unload "$HOME/Library/LaunchAgents/com.yodotask.app.plist" 2>/dev/null || true
-pkill -f "yodo-task/src/main/server.js" 2>/dev/null || true
-pkill -f "electron" 2>/dev/null || true
+# ── 3. Stop any running instances ─────────────────────────────────────────
+echo "Stopping any running YoDo Task instances..."
+pkill -f "Yodo Task" 2>/dev/null || true
+pkill -f "electron"  2>/dev/null || true
+launchctl remove com.yodotask.app 2>/dev/null || true
 sleep 1
 
-echo "Extracting codebase..."
-sudo rm -rf /usr/local/yodo-task/*
-sudo tar -xzf "$TEMP_TAR" -C /usr/local/yodo-task --strip-components=1
+# ── 4. Download source ────────────────────────────────────────────────────
+echo "Downloading source from GitHub ($GITHUB_REPO)..."
+TEMP_TAR="/tmp/yodo-task-$(date +%s).tar.gz"
+
+curl -L -s "https://github.com/$GITHUB_REPO/archive/refs/heads/main.tar.gz" -o "$TEMP_TAR"
+
+if [ ! -s "$TEMP_TAR" ]; then
+  echo "ERROR: Download failed."
+  exit 1
+fi
+
+echo "Extracting source..."
+rm -rf "$INSTALL_SRC"
+mkdir -p "$INSTALL_SRC"
+tar -xzf "$TEMP_TAR" -C "$INSTALL_SRC" --strip-components=1
 rm -f "$TEMP_TAR"
 
-# 4. Fix permissions
-echo "Setting permissions for /usr/local/yodo-task..."
-sudo chown -R "$USER" /usr/local/yodo-task
-
-# 5. Install dependencies and compile
-echo "Installing application dependencies..."
-cd /usr/local/yodo-task || exit 1
-
+# ── 5. Install npm deps ────────────────────────────────────────────────────
+echo "Installing npm dependencies..."
+cd "$INSTALL_SRC"
 npm install
-if [ $? -ne 0 ]; then
-  echo "Error: npm install failed. Please verify Xcode command line tools are installed (xcode-select --install)."
-  exit 1
-fi
 
-echo "Building React static distribution..."
+# ── 6. Build React UI ─────────────────────────────────────────────────────
+echo "Building React UI bundle..."
 npm run build
-if [ $? -ne 0 ]; then
-  echo "Error: Vite build failed."
+
+# ── 7. Rebuild native SQLite for Electron ─────────────────────────────────
+echo "Rebuilding better-sqlite3 for Electron..."
+npm rebuild better-sqlite3 || ./node_modules/.bin/electron-rebuild -f -w better-sqlite3
+
+# ── 8. Build .dmg with electron-builder ───────────────────────────────────
+echo "Building Electron DMG package..."
+npm run package:mac
+
+DMG_FILE=$(find "$INSTALL_SRC/dist-packaged" -maxdepth 1 -name "*.dmg" | head -n 1)
+if [ -z "$DMG_FILE" ]; then
+  echo "ERROR: .dmg was not produced. Check electron-builder output."
   exit 1
 fi
 
-echo "Rebuilding better-sqlite3 native module..."
-npm rebuild better-sqlite3
-if [ $? -ne 0 ]; then
-  echo "Error: Native module rebuild failed."
-  exit 1
+# ── 9. Mount DMG and copy .app to /Applications ───────────────────────────
+echo "Installing $APP_NAME to $APPS_DIR..."
+MOUNT_POINT=$(hdiutil attach "$DMG_FILE" -nobrowse -readonly | grep Volumes | awk '{print $NF}')
+
+if [ -d "$APPS_DIR/$APP_NAME" ]; then
+  rm -rf "$APPS_DIR/$APP_NAME"
 fi
 
-# 6. Configure LaunchAgent boot autostart
-echo "Configuring boot autostart LaunchAgent..."
+cp -R "$MOUNT_POINT/$APP_NAME" "$APPS_DIR/"
+hdiutil detach "$MOUNT_POINT" -quiet
+
+echo "$APP_NAME installed to $APPS_DIR"
+
+# ── 10. Register LaunchAgent for login autostart ───────────────────────────
+echo "Configuring login autostart..."
 LAUNCH_AGENT_DIR="$HOME/Library/LaunchAgents"
+PLIST="$LAUNCH_AGENT_DIR/com.yodotask.app.plist"
 mkdir -p "$LAUNCH_AGENT_DIR"
 
-NODE_PATH=$(command -v node)
-
-cat <<EOF > "$LAUNCH_AGENT_DIR/com.yodotask.app.plist"
+cat > "$PLIST" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -104,56 +105,32 @@ cat <<EOF > "$LAUNCH_AGENT_DIR/com.yodotask.app.plist"
     <string>com.yodotask.app</string>
     <key>ProgramArguments</key>
     <array>
-        <string>$NODE_PATH</string>
-        <string>/usr/local/yodo-task/src/main/server.js</string>
+        <string>open</string>
+        <string>-a</string>
+        <string>$APPS_DIR/$APP_NAME</string>
     </array>
     <key>RunAtLoad</key>
-    <true/>
+    <false/>
     <key>KeepAlive</key>
-    <true/>
-    <key>WorkingDirectory</key>
-    <string>/usr/local/yodo-task</string>
-    <key>EnvironmentVariables</key>
-    <dict>
-        <key>PORT</key>
-        <string>54321</string>
-    </dict>
+    <false/>
 </dict>
 </plist>
 EOF
 
-# Load and start LaunchAgent immediately
-launchctl unload "$LAUNCH_AGENT_DIR/com.yodotask.app.plist" >/dev/null 2>&1 || true
-launchctl load "$LAUNCH_AGENT_DIR/com.yodotask.app.plist"
-
-# 7. Create global command (yodo-task) to control daemon and launch Electron GUI
-echo "Creating global launcher command /usr/local/bin/yodo-task..."
-cat <<EOF | sudo tee /usr/local/bin/yodo-task > /dev/null
-#!/bin/bash
-# yodo-task - Launcher for YoDo Task Desktop App
-
-# Ensure LaunchAgent is active/running
-launchctl list com.yodotask.app >/dev/null 2>&1
-if [ \$? -ne 0 ]; then
-  launchctl load "$HOME/Library/LaunchAgents/com.yodotask.app.plist" 2>/dev/null
-  launchctl start com.yodotask.app 2>/dev/null
-fi
-
-# Run the Electron desktop app
-cd /usr/local/yodo-task
-exec ./node_modules/.bin/electron . "\$@" > /dev/null 2>&1 &
-EOF
-
-sudo chmod +x /usr/local/bin/yodo-task
+launchctl load "$PLIST" 2>/dev/null || true
 
 echo "=========================================="
-echo "Installation complete! YoDo Task is ready."
-echo "The application runs as a background LaunchAgent daemon."
-echo "  - Start:   launchctl start com.yodotask.app"
-echo "  - Stop:    launchctl stop com.yodotask.app"
+echo "  YoDo Task installed successfully!"
+echo ""
+echo "  Open from: Launchpad → Yodo Task"
+echo "  Or run:    open -a 'Yodo Task'"
+echo ""
+echo "  Global hotkeys (Ctrl+Shift+Space / Ctrl+Shift+A)"
+echo "  work system-wide once the app is running."
 echo "=========================================="
 
-# Auto-launch the application immediately
-echo "Auto-launching YoDo Task..."
-/usr/local/bin/yodo-task
+# ── 11. Launch the app immediately ─────────────────────────────────────────
+echo "Launching Yodo Task..."
+open -a "$APPS_DIR/$APP_NAME" &
+
 exit 0
