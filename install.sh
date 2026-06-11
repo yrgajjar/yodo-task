@@ -152,10 +152,13 @@ sudo chmod +x /usr/local/bin/yodo-task
 
 echo "=========================================="
 echo "Installation complete! YoDo Task is ready."
-echo "You can now run 'yodo-task' from anywhere."
 echo "The application runs as a persistent service."
 echo "  - Start:   systemctl --user start yodo-task"
 echo "  - Stop:    systemctl --user stop yodo-task"
 echo "  - Logs:    journalctl --user -u yodo-task -f"
 echo "=========================================="
+
+# Auto-launch the application immediately
+echo "Auto-launching YoDo Task..."
+/usr/local/bin/yodo-task
 exit 0

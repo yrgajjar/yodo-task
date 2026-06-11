@@ -144,9 +144,12 @@ sudo chmod +x /usr/local/bin/yodo-task
 
 echo "=========================================="
 echo "Installation complete! YoDo Task is ready."
-echo "You can now run 'yodo-task' from anywhere."
 echo "The application runs as a background LaunchAgent daemon."
 echo "  - Start:   launchctl start com.yodotask.app"
 echo "  - Stop:    launchctl stop com.yodotask.app"
 echo "=========================================="
+
+# Auto-launch the application immediately
+echo "Auto-launching YoDo Task..."
+/usr/local/bin/yodo-task
 exit 0
