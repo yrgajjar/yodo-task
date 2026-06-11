@@ -7,7 +7,7 @@ echo "    Installing YoDo Task (Linux/Ubuntu)   "
 echo "=========================================="
 
 # Repository configuration (can be updated for user fork)
-GITHUB_REPO="yodo/task"
+GITHUB_REPO="yrgajjar/yodo-task"
 
 # 1. Accept port as argument (defaults to 54321)
 PORT="${1:-54321}"

@@ -9,18 +9,18 @@
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-primary: #0b0f19;
-      --bg-secondary: #111827;
-      --bg-card: #1f2937;
-      --text-main: #f9fafb;
-      --text-muted: #9ca3af;
-      --primary: #6366f1;
-      --primary-hover: #4f46e5;
-      --primary-light: rgba(99, 102, 241, 0.1);
-      --border-color: rgba(255, 255, 255, 0.08);
-      --gradient-text: linear-gradient(135deg, #a5b4fc 0%, #6366f1 100%);
-      --shadow-indigo: 0 10px 30px -10px rgba(99, 102, 241, 0.3);
-      --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      --bg-primary: #f8fafc;
+      --bg-secondary: #f1f5f9;
+      --bg-card: #ffffff;
+      --text-main: #0f172a;
+      --text-muted: #475569;
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --primary-light: rgba(79, 70, 229, 0.06);
+      --border-color: rgba(15, 23, 42, 0.08);
+      --gradient-text: linear-gradient(135deg, #4f46e5 0%, #1e1b4b 100%);
+      --shadow-indigo: 0 10px 30px -10px rgba(79, 70, 229, 0.15);
+      --shadow-lg: 0 20px 25px -5px rgba(15, 23, 42, 0.05), 0 10px 10px -5px rgba(15, 23, 42, 0.02);
     }
 
     * {
@@ -53,7 +53,7 @@
     header {
       border-bottom: 1px solid var(--border-color);
       padding: 20px 0;
-      background-color: rgba(11, 15, 25, 0.8);
+      background-color: rgba(248, 250, 252, 0.85);
       backdrop-filter: blur(12px);
       position: sticky;
       top: 0;
@@ -160,18 +160,18 @@
     .terminal-container {
       max-width: 640px;
       margin: 0 auto 50px auto;
-      background-color: var(--bg-secondary);
+      background-color: #0f172a;
       border-radius: 12px;
-      border: 1px solid var(--border-color);
-      box-shadow: var(--shadow-lg);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.1), 0 10px 10px -5px rgba(15, 23, 42, 0.04);
       overflow: hidden;
       text-align: left;
     }
 
     .terminal-header {
-      background-color: rgba(255, 255, 255, 0.03);
+      background-color: rgba(255, 255, 255, 0.02);
       padding: 12px 18px;
-      border-bottom: 1px solid var(--border-color);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -194,7 +194,7 @@
 
     .terminal-title {
       font-size: 11px;
-      color: var(--text-muted);
+      color: #94a3b8;
       font-weight: 600;
       letter-spacing: 0.5px;
       text-transform: uppercase;
@@ -203,13 +203,13 @@
     .terminal-tabs {
       display: flex;
       background-color: rgba(0, 0, 0, 0.2);
-      border-bottom: 1px solid var(--border-color);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     }
 
     .tab-btn {
       background: transparent;
       border: none;
-      color: var(--text-muted);
+      color: #94a3b8;
       padding: 12px 20px;
       font-size: 12px;
       font-weight: 700;
@@ -217,14 +217,14 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      border-right: 1px solid var(--border-color);
+      border-right: 1px solid rgba(255, 255, 255, 0.08);
       transition: all 0.2s ease;
     }
 
     .tab-btn.active {
-      background-color: var(--bg-secondary);
-      color: var(--text-main);
-      border-bottom: 2px solid var(--primary);
+      background-color: #0f172a;
+      color: #f8fafc;
+      border-bottom: 2px solid #6366f1;
     }
 
     .terminal-body {
@@ -232,17 +232,18 @@
       font-family: 'Courier New', Courier, monospace;
       font-size: 13px;
       position: relative;
+      background-color: #0f172a;
     }
 
     .terminal-line {
       display: flex;
       align-items: center;
-      color: var(--text-main);
+      color: #f8fafc;
       word-break: break-all;
     }
 
     .terminal-prompt {
-      color: var(--primary);
+      color: #6366f1;
       font-weight: bold;
       margin-right: 10px;
       user-select: none;
@@ -253,9 +254,9 @@
       right: 20px;
       top: 50%;
       transform: translateY(-50%);
-      background-color: var(--bg-card);
-      border: 1px solid var(--border-color);
-      color: var(--text-main);
+      background-color: #1e293b;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #f8fafc;
       padding: 8px 14px;
       border-radius: 6px;
       font-size: 12px;
@@ -268,8 +269,8 @@
     }
 
     .terminal-copy:hover {
-      background-color: var(--primary);
-      border-color: var(--primary);
+      background-color: #6366f1;
+      border-color: #6366f1;
     }
 
     /* Features Section */
@@ -339,7 +340,7 @@
     .previews {
       padding: 80px 0;
       border-top: 1px solid var(--border-color);
-      background-color: rgba(255, 255, 255, 0.01);
+      background-color: rgba(15, 23, 42, 0.01);
     }
 
     .carousel-container {
@@ -478,13 +479,13 @@
     <div class="container">
       <nav>
         <div class="logo">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="3" style="vertical-align: middle;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="3" style="vertical-align: middle;">
             <polyline points="9 11 12 14 22 4"></polyline>
             <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
           </svg>
           <span class="logo-text">YoDo Task</span>
         </div>
-        <a href="https://github.com/yodo/task" class="github-link" target="_blank">
+        <a href="https://github.com/yrgajjar/yodo-task" class="github-link" target="_blank">
           <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
             <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
           </svg>
@@ -521,7 +522,7 @@
         <div class="terminal-body">
           <div class="terminal-line">
             <span class="terminal-prompt">$</span>
-            <span id="install-command">curl -fsSL https://myapp.vercel.app/install.sh | bash</span>
+            <span id="install-command">curl -fsSL https://yodo-task.vercel.app/install.sh | bash</span>
           </div>
           <button class="terminal-copy" onclick="copyCommand()">
             <svg id="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align: middle; margin-right: 4px;">
@@ -631,16 +632,16 @@
   <footer>
     <div class="container">
       <p>YoDo Task Manager &bull; Local Network Workspace &bull; v1.1.0</p>
-      <p>Codebase available on <a href="https://github.com/yodo/task" target="_blank">GitHub</a>. Released under the MIT License.</p>
+      <p>Codebase available on <a href="https://github.com/yrgajjar/yodo-task" target="_blank">GitHub</a>. Released under the MIT License.</p>
     </div>
   </footer>
 
   <script>
     // Commands lookup
     const commands = {
-      linux: "curl -fsSL https://myapp.vercel.app/install.sh | bash",
-      mac: "curl -fsSL https://myapp.vercel.app/install.command | bash",
-      windows: "irm https://myapp.vercel.app/install.ps1 | iex"
+      linux: "curl -fsSL https://yodo-task.vercel.app/install.sh | bash",
+      mac: "curl -fsSL https://yodo-task.vercel.app/install.command | bash",
+      windows: "irm https://yodo-task.vercel.app/install.ps1 | iex"
     };
 
     let activeOS = 'linux';

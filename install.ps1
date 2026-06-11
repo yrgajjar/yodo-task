@@ -5,7 +5,7 @@ Write-Host "    Installing YoDo Task (Windows)        " -ForegroundColor Green
 Write-Host "==========================================" -ForegroundColor Green
 
 # Repository configuration (can be updated for user fork)
-$GITHUB_REPO = "yodo/task"
+$GITHUB_REPO = "yrgajjar/yodo-task"
 
 # 1. Check if Node.js is installed
 $nodeCheck = Get-Command node -ErrorAction SilentlyContinue

@@ -4,7 +4,7 @@
   "description": "A local-first ToDo desktop application with system-level shortcut access and local network hosting.",
   "main": "src/main/main.js",
   "author": "Yodo Task Team <support@yodo.task>",
-  "homepage": "https://github.com/yodo/task",
+  "homepage": "https://github.com/yrgajjar/yodo-task",
   "type": "commonjs",
   "scripts": {
     "dev": "node scripts/dev.js",

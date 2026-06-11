@@ -7,7 +7,7 @@ echo "    Installing YoDo Task (macOS)          "
 echo "=========================================="
 
 # Repository configuration (can be updated for user fork)
-GITHUB_REPO="yodo/task"
+GITHUB_REPO="yrgajjar/yodo-task"
 
 # 1. Check if Node.js and npm are installed
 if ! command -v node &> /dev/null; then
