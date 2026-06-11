@@ -12,7 +12,7 @@ let miniWindow = null;
 let quickAddWindow = null;
 let tray = null;
 
-const distExists = fs.existsSync(path.join(__dirname, '../../dist/renderer/index.html'));
+const distExists = fs.existsSync(path.join(__dirname, '../../dist/index.html'));
 const isDev = !app.isPackaged && !distExists;
 
 /**
@@ -124,7 +124,7 @@ function createMainWindow() {
     // Open DevTools in dev mode
     mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../../dist/renderer/index.html'));
+    mainWindow.loadFile(path.join(__dirname, '../../dist/index.html'));
   }
 
   // Intercept close events to hide to tray
@@ -178,7 +178,7 @@ function createMiniWindow() {
   if (isDev) {
     miniWindow.loadURL('http://localhost:5173?window=mini');
   } else {
-    const filePath = path.resolve(__dirname, '../../dist/renderer/index.html');
+    const filePath = path.resolve(__dirname, '../../dist/index.html');
     const miniUrl = url.format({
       pathname: filePath,
       protocol: 'file:',
@@ -224,7 +224,7 @@ function createQuickAddWindow() {
   if (isDev) {
     quickAddWindow.loadURL('http://localhost:5173?window=quickadd');
   } else {
-    const filePath = path.resolve(__dirname, '../../dist/renderer/index.html');
+    const filePath = path.resolve(__dirname, '../../dist/index.html');
     const quickAddUrl = url.format({
       pathname: filePath,
       protocol: 'file:',

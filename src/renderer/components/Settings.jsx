@@ -619,22 +619,19 @@ export default function Settings({ settings, onSaveSetting, onRefresh, workspace
                 value={shortcut}
                 onChange={(e) => setShortcut(e.target.value)}
                 placeholder="e.g. CommandOrControl+Alt+Y"
-                disabled={!api.isElectron}
               />
               <button
                 type="button"
                 className="btn-secondary"
                 onClick={handleShortcutTest}
-                disabled={!api.isElectron}
-                style={{ padding: '8px 16px', fontSize: '13px', fontWeight: '600', cursor: api.isElectron ? 'pointer' : 'not-allowed' }}
+                style={{ padding: '8px 16px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}
               >
                 Test Shortcut
               </button>
               <button 
                 type="submit" 
                 className="btn-primary"
-                disabled={!api.isElectron}
-                style={{ padding: '8px 16px', fontSize: '13px', fontWeight: '600', cursor: api.isElectron ? 'pointer' : 'not-allowed' }}
+                style={{ padding: '8px 16px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}
               >
                 Save
               </button>
